@@ -1,11 +1,4 @@
-struct Vec3f
-{
-    float x, y, z;
-
-    Vec3f() : x(0), y(0), z(0) {}
-    Vec3f(float x, float y, float z) : x(x), y(y), z(z) {}
-};
-
+#include "Vec.h"
 
 // [0,0] should be bottom left
 // [height - 1, width - 1] should be top right

@@ -1,5 +1,7 @@
 #include <iostream>
+#include <cassert>
 #include "Image.h"
+#include "Mesh.h"
 
 
 void draw_line(int x0, int y0, int x1, int y1, Image& image, Vec3f color);
@@ -7,19 +9,29 @@ void draw_line(int x0, int y0, int x1, int y1, Image& image, Vec3f color);
 
 int main()
 {   
+    Mesh mesh = load_mesh("./obj/african_head.obj");
+
     Image image;
-    init_image(image, 500, 500);
+    init_image(image, 1000, 1000);
 
     Vec3f white (1.0f, 1.0f, 1.0f);
-    Vec3f red (1.0f, 0.0f, 0.0f);
-    Vec3f green (0.0f, 1.0f, 0.0f);    
-    draw_line(0, 0, 0, 199, image, red);
-    draw_line(99, 20, 0, 0, image, white);
-    draw_line(145, 9, 12, 99, image, red);
-    draw_line(100, 100, 499, 499, image, red);
-    draw_line(25, 250, 499, 250, image, red);
-    draw_line(10, 10, 10, 499, image, red);
-    
+
+    for (int i = 0; i < mesh.faces.size(); i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            Vec3f v0 = mesh.vertices[mesh.faces[i][j].x];
+            Vec3f v1 = mesh.vertices[mesh.faces[i][(j + 1) % 3].x];
+
+            int x0 = (v0.x + 1.0f) * ((image.width  - 1)/ 2.0f);
+            int y0 = (v0.y + 1.0f) * ((image.height - 1) / 2.0f);
+            int x1 = (v1.x + 1.0f) * ((image.width  - 1)/ 2.0f);
+            int y1 = (v1.y + 1.0f) * ((image.height - 1) / 2.0f);
+
+            draw_line(x0, y0, x1, y1, image, white);
+        }
+    }
+
 
     save_image("./image.bmp", image);
 
@@ -30,6 +42,11 @@ int main()
 // pixel-coordinates
 void draw_line(int x0, int y0, int x1, int y1, Image& image, Vec3f color)
 {
+    assert(x0 >= 0 && x0 < image.width);
+    assert(y0 >= 0 && y0 < image.height);
+    assert(x1 >= 0 && x1 < image.width);
+    assert(y1 >= 0 && y1 < image.height);
+
     // left-to-right (for symmetry)
     if (x0 > x1)
     {
@@ -61,6 +78,11 @@ void draw_line(int x0, int y0, int x1, int y1, Image& image, Vec3f color)
     image.image[pix_y][pix_x] = color;
     while (true)
     {
+        if (pix_x == x1 && pix_y == y1)
+        {
+            break;
+        }
+
         if (t_x < t_y)
         {
             pix_x += dPix_x;
@@ -81,11 +103,6 @@ void draw_line(int x0, int y0, int x1, int y1, Image& image, Vec3f color)
             pix_y += dPix_y;
             t_y += dt_y;
             image.image[pix_y][pix_x] = color;  
-        }
-
-        if (pix_x == x1 && pix_y == y1)
-        {
-            break;
         }
     }
 }
