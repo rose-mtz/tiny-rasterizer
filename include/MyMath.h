@@ -28,6 +28,7 @@ struct Vec3f
     Vec3f() : x(0), y(0), z(0) {}
     Vec3f(float x, float y, float z) : x(x), y(y), z(z) {}
     Vec3f(Vec2i xy, float z) : x(xy.x), y(xy.y), z(z) {}
+    Vec3f(Vec2f xy, float z) : x(xy.x), y(xy.y), z(z) {}
 };
 
 

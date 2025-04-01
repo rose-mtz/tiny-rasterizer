@@ -11,35 +11,51 @@ void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f color);
 
 int main()
 {   
-    // Mesh mesh = load_mesh("./obj/african_head.obj");
+    Mesh mesh = load_mesh("./obj/african_head.obj");
 
     Image image;
-    init_image(image, 100, 100);
+    init_image(image, 1000, 1000);
 
     Vec3f white (1.0f, 1.0f, 1.0f);
     Vec3f red   (1.0f, 0.0f, 0.0f);
 
-    // for (int i = 0; i < mesh.faces.size(); i++)
-    // {
-    //     for (int j = 0; j < 3; j++)
-    //     {
-    //         Vec3f v0 = mesh.vertices[mesh.faces[i][j].x];
-    //         Vec3f v1 = mesh.vertices[mesh.faces[i][(j + 1) % 3].x];
+    for (int i = 0; i < mesh.faces.size(); i++)
+    {
 
-    //         int x0 = (v0.x + 1.0f) * ((image.width  - 1)/ 2.0f);
-    //         int y0 = (v0.y + 1.0f) * ((image.height - 1) / 2.0f);
-    //         int x1 = (v1.x + 1.0f) * ((image.width  - 1)/ 2.0f);
-    //         int y1 = (v1.y + 1.0f) * ((image.height - 1) / 2.0f);
+        Vec3f v0 = mesh.vertices[mesh.faces[i][0].x];
+        Vec3f v1 = mesh.vertices[mesh.faces[i][1].x];
+        Vec3f v2 = mesh.vertices[mesh.faces[i][2].x];
 
-    //         draw_line(Vec2i(x0, y0), Vec2i(x1, y1), image, white);
-    //     }
-    // }
+        Vec2i v0_trans ((v0.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v0.y + 1.0f) * ((image.height - 1) / 2.0f));
+        Vec2i v1_trans ((v1.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v1.y + 1.0f) * ((image.height - 1) / 2.0f));
+        Vec2i v2_trans ((v2.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v2.y + 1.0f) * ((image.height - 1) / 2.0f));
 
-    Vec2i a(0,0), b(82,34), c(24,99);
-    draw_triangle(a, b, c, image, white);
-    draw_line(a, b, image, red);
-    draw_line(a, c, image, red);
-    draw_line(b, c, image, red);
+        Vec3f color_rnd;
+        color_rnd.x = (std::rand() % 101) / 100.0f;
+        color_rnd.y = (std::rand() % 101) / 100.0f;
+        color_rnd.z = (std::rand() % 101) / 100.0f;
+
+        draw_triangle(v0_trans, v1_trans, v2_trans, image, color_rnd);
+
+        for (int j = 0; j < 3; j++)
+        {
+            Vec3f v0 = mesh.vertices[mesh.faces[i][j].x];
+            Vec3f v1 = mesh.vertices[mesh.faces[i][(j + 1) % 3].x];
+
+            int x0 = (v0.x + 1.0f) * ((image.width  - 1)/ 2.0f);
+            int y0 = (v0.y + 1.0f) * ((image.height - 1) / 2.0f);
+            int x1 = (v1.x + 1.0f) * ((image.width  - 1)/ 2.0f);
+            int y1 = (v1.y + 1.0f) * ((image.height - 1) / 2.0f);
+
+            draw_line(Vec2i(x0, y0), Vec2i(x1, y1), image, white);
+        }
+    }
+
+    // Vec2i a(0,0), b(82,34), c(24,99);
+    // draw_triangle(a, b, c, image, white);
+    // draw_line(a, b, image, red);
+    // draw_line(a, c, image, red);
+    // draw_line(b, c, image, red);
 
     save_image("./image.bmp", image);
 
@@ -89,22 +105,36 @@ void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color)
 
 void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f color)
 {
-    // Lets do the BB later
-        // BoundingBox get_clipped_bounding_box(a,b,c)
-        // BoundingBox { Vec2i bottom_left, Vec2i top_right }
-    // No AA, just dead center of pixel in or out
-    // lets also just use lower left instead of 'center'
+    Vec2i min;
+    Vec2i max;
+    // bounding box for triangle
+    min.x = std::min(a.x, std::min(b.x, c.x));
+    min.y = std::min(a.y, std::min(b.y, c.y));
+    max.x = std::max(a.x, std::max(b.x, c.x));
+    max.y = std::max(a.y, std::max(b.y, c.y));
+    // clip box to be within image
+    min.x = std::max(min.x, 0);
+    min.y = std::max(min.y, 0);
+    max.x = std::min(max.x, image.width - 1);
+    max.y = std::min(max.y, image.height - 1);
 
-    Mat3x3 D (Vec3f(a, 1), Vec3f(b, 1), Vec3f(c, 1));
+    // center of pixels
+    Vec2f pixel_half (0.5f, 0.5f);
+    Vec2f a_center (a.x + pixel_half.x, a.y + pixel_half.y);
+    Vec2f b_center (b.x + pixel_half.x, b.y + pixel_half.y);
+    Vec2f c_center (c.x + pixel_half.x, c.y + pixel_half.y);
+
+    Mat3x3 D (Vec3f(a_center, 1), Vec3f(b_center, 1), Vec3f(c_center, 1));
     float determinant_of_d = determinant(D);
 
-    for (int row = 0; row < image.height; row++)
+    for (int row = min.y; row <= max.y; row++)
     {
-        for (int col = 0; col < image.width; col++)
+        for (int col = min.x; col <= max.x; col++)
         {
-            Mat3x3 D_x (Vec3f(col, row, 1), Vec3f(b, 1), Vec3f(c, 1));
-            Mat3x3 D_y (Vec3f(a, 1), Vec3f(col, row, 1), Vec3f(c, 1));
-            Mat3x3 D_z (Vec3f(a, 1), Vec3f(b, 1), Vec3f(col, row, 1));
+            Vec2f pixel_center (col + pixel_half.x, row + pixel_half.y);
+            Mat3x3 D_x (Vec3f(pixel_center, 1), Vec3f(b_center, 1), Vec3f(c_center, 1));
+            Mat3x3 D_y (Vec3f(a_center, 1), Vec3f(pixel_center, 1), Vec3f(c_center, 1));
+            Mat3x3 D_z (Vec3f(a_center, 1), Vec3f(b_center, 1), Vec3f(pixel_center, 1));
 
             float determinant_of_dx = determinant(D_x);
             float determinant_of_dy = determinant(D_y);
