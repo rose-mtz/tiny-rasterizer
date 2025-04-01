@@ -1,4 +1,4 @@
-#include "Vec.h"
+#include "MyMath.h"
 
 // [0,0] should be bottom left
 // [height - 1, width - 1] should be top right

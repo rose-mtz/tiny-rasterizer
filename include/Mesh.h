@@ -1,4 +1,4 @@
-#include "Vec.h"
+#include "MyMath.h"
 #include <vector>
 
 struct Mesh

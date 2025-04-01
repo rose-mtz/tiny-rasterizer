@@ -9,7 +9,6 @@
 void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color);
 void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f color);
 
-
 int main()
 {   
     // Mesh mesh = load_mesh("./obj/african_head.obj");
@@ -88,180 +87,38 @@ void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color)
 }
 
 
-void draw_horizontal_line(Vec2i a, Vec2i b, Image& image, Vec3f color)
-{
-    assert(a.y == b.y);
-    assert(a.x >= 0 && a.x < image.width && a.y >= 0 && a.y < image.height);
-    assert(b.x >= 0 && b.x < image.width && b.y >= 0 && b.y < image.height);
-
-    if (a.x > b.x) std::swap(a,b);
-
-    Vec2i pixel (a);
-    while (pixel.x <= b.x)
-    {
-        assert(pixel.x >= 0 && pixel.x < image.width && pixel.y >= 0 && pixel.y < image.height);
-        image.image[pixel.y][pixel.x] = color;
-        pixel.x++;
-    }
-}
-
-
 void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f color)
 {
-    if (a.y > b.y) std::swap(a,b);
-    if (a.y > c.y) std::swap(a,c);
-    if (b.y > c.y) std::swap(b,c);
+    // Lets do the BB later
+        // BoundingBox get_clipped_bounding_box(a,b,c)
+        // BoundingBox { Vec2i bottom_left, Vec2i top_right }
+    // No AA, just dead center of pixel in or out
+    // lets also just use lower left instead of 'center'
 
-    if (a.y == b.y) // special case: 'flat base' triangle
+    Mat3x3 D (Vec3f(a, 1), Vec3f(b, 1), Vec3f(c, 1));
+    float determinant_of_d = determinant(D);
+
+    for (int row = 0; row < image.height; row++)
     {
-        // TODO
-        assert(false);
-    }
-    else
-    {
-        // Set up march from a to b
-        Vec2i direction_ab (b.x - a.x, b.y - a.y);
-        Vec2f dt_ab (1.0f / std::abs(direction_ab.x), 1.0f / std::abs(direction_ab.y)); // note: (float) 1.0 / (int) 0 == infinity
-        Vec2f t_next_ab (dt_ab); // the next values at which a 'x' or 'y intersection' occur
-        Vec2i delta_pixel_ab;
-        delta_pixel_ab.x = direction_ab.x > 0 ? 1 : -1;
-        delta_pixel_ab.y = direction_ab.y > 0 ? 1 : -1;
-        Vec2i current_pixel_ab = a;
-        Vec2i target_pixel_ab = b;
-
-        // Set up march from a to c
-        Vec2i direction_ac (c.x - a.x, c.y - a.y);
-        Vec2f dt_ac (1.0f / std::abs(direction_ac.x), 1.0f / std::abs(direction_ac.y)); // note: (float) 1.0 / (int) 0 == infinity
-        Vec2f t_next_ac (dt_ac); // the next values at which a 'x' or 'y intersection' occur
-        Vec2i delta_pixel_ac;
-        delta_pixel_ac.x = direction_ac.x > 0 ? 1 : -1;
-        delta_pixel_ac.y = direction_ac.y > 0 ? 1 : -1;
-        Vec2i current_pixel_ac = a;
-        Vec2i target_pixel_ac = c;
-
-        // march a to b and a to c at the same time
-        // synchronizing at y-values
-        while (true)
+        for (int col = 0; col < image.width; col++)
         {
-            draw_horizontal_line(current_pixel_ab, current_pixel_ac, image, color);
-            if (
-                (current_pixel_ab.x == target_pixel_ab.x && current_pixel_ab.y == target_pixel_ab.y) || 
-                (current_pixel_ac.x == target_pixel_ac.x && current_pixel_ac.y == target_pixel_ac.y)
-                )
+            Mat3x3 D_x (Vec3f(col, row, 1), Vec3f(b, 1), Vec3f(c, 1));
+            Mat3x3 D_y (Vec3f(a, 1), Vec3f(col, row, 1), Vec3f(c, 1));
+            Mat3x3 D_z (Vec3f(a, 1), Vec3f(b, 1), Vec3f(col, row, 1));
+
+            float determinant_of_dx = determinant(D_x);
+            float determinant_of_dy = determinant(D_y);
+            float determinant_of_dz = determinant(D_z);
+
+            float alpha = determinant_of_dx / determinant_of_d;
+            float beta = determinant_of_dy / determinant_of_d;
+            float gamma = determinant_of_dz / determinant_of_d;
+
+            // assert(alpha + beta + gamma == 1.0f); // FAILS sometimes!
+
+            if (alpha >= 0.0f && beta >= 0.0f && gamma >= 0.0f)
             {
-                break;
-            }
-
-            // march line ab to next y-value
-            while (true)
-            {
-                if (t_next_ab.x <= t_next_ab.y)
-                {
-                    current_pixel_ab.x += delta_pixel_ab.x;
-                    t_next_ab.x += dt_ab.x;
-                }
-                else
-                {
-                    current_pixel_ab.y += delta_pixel_ab.y;
-                    t_next_ab.y += dt_ab.y;
-                    break;
-                }
-            }
-
-            // march line ac to next y-value
-            while (true)
-            {
-                if (t_next_ac.x <= t_next_ac.y)
-                {
-                    current_pixel_ac.x += delta_pixel_ac.x;
-                    t_next_ac.x += dt_ac.x;
-                }
-                else
-                {
-                    current_pixel_ac.y += delta_pixel_ac.y;
-                    t_next_ac.y += dt_ac.y;
-                    break;
-                }
-            }
-        }
-
-        // EDGE CASE: march ends for both at same time! --> V
-        if (
-            (current_pixel_ab.x == target_pixel_ab.x && current_pixel_ab.y == target_pixel_ab.y) &&
-            (current_pixel_ac.x == target_pixel_ac.x && current_pixel_ac.y == target_pixel_ac.y)
-            )
-        {
-            return;
-        }
-        else if (current_pixel_ab.x == target_pixel_ab.x && current_pixel_ab.y == target_pixel_ab.y)
-        {
-            // Set up march from b to c
-            direction_ab  = Vec2i(c.x - b.x, c.y - b.y);
-            dt_ab = Vec2f(1.0f / std::abs(direction_ab.x), 1.0f / std::abs(direction_ab.y)); // note: (float) 1.0 / (int) 0 == infinity
-            t_next_ab = Vec2f(dt_ab); // the next values at which a 'x' or 'y intersection' occur
-            delta_pixel_ab.x = direction_ab.x > 0 ? 1 : -1;
-            delta_pixel_ab.y = direction_ab.y > 0 ? 1 : -1;
-            current_pixel_ab = b;
-            target_pixel_ab = c;
-        }
-        else
-        {
-            // Set up march from c to b
-            direction_ac  = Vec2i(b.x - c.x, b.y - c.y);
-            dt_ac = Vec2f(1.0f / std::abs(direction_ac.x), 1.0f / std::abs(direction_ac.y)); // note: (float) 1.0 / (int) 0 == infinity
-            t_next_ac = Vec2f(dt_ac); // the next values at which a 'x' or 'y intersection' occur
-            delta_pixel_ac.x = direction_ac.x > 0 ? 1 : -1;
-            delta_pixel_ac.y = direction_ac.y > 0 ? 1 : -1;
-            current_pixel_ac = c;
-            target_pixel_ac = b;
-        }
-
-        // Set up march from (b to c OR c to b, depending on BEFORE shit)
-        // I think easiest way to do this is just re-use old variables
-
-        // continue marching
-        while (true)
-        {
-            // In-Efficient: 'middle/perpendicular' line getting drawn twice
-            draw_horizontal_line(current_pixel_ab, current_pixel_ac, image, color);
-            if (
-                (current_pixel_ab.x == target_pixel_ab.x && current_pixel_ab.y == target_pixel_ab.y) || 
-                (current_pixel_ac.x == target_pixel_ac.x && current_pixel_ac.y == target_pixel_ac.y)
-                )
-            {
-                break;
-            }
-
-            // march line ab to next y-value
-            while (true)
-            {
-                if (t_next_ab.x <= t_next_ab.y)
-                {
-                    current_pixel_ab.x += delta_pixel_ab.x;
-                    t_next_ab.x += dt_ab.x;
-                }
-                else
-                {
-                    current_pixel_ab.y += delta_pixel_ab.y;
-                    t_next_ab.y += dt_ab.y;
-                    break;
-                }
-            }
-
-            // march line ac to next y-value
-            while (true)
-            {
-                if (t_next_ac.x <= t_next_ac.y)
-                {
-                    current_pixel_ac.x += delta_pixel_ac.x;
-                    t_next_ac.x += dt_ac.x;
-                }
-                else
-                {
-                    current_pixel_ac.y += delta_pixel_ac.y;
-                    t_next_ac.y += dt_ac.y;
-                    break;
-                }
+                image.image[row][col] = color;
             }
         }
     }
