@@ -21,4 +21,28 @@ Vec3f multiply(Mat3x3 m, Vec3f v)
 }
 
 
+// a - b
+Vec3f subtract(Vec3f a, Vec3f b)
+{
+    return Vec3f(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
+
+// a x b
+Vec3f cross(Vec3f a, Vec3f b)
+{
+    return Vec3f(
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    );
+}
+
+
+float dot(Vec3f a, Vec3f b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+
 // What the fuck am I doing!

@@ -6,6 +6,7 @@
 #include "Mesh.h"
 
 
+bool back_facing_triangle(Vec3f a, Vec3f b, Vec3f c);
 void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color);
 void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f color);
 
@@ -21,10 +22,14 @@ int main()
 
     for (int i = 0; i < mesh.faces.size(); i++)
     {
-
         Vec3f v0 = mesh.vertices[mesh.faces[i][0].x];
         Vec3f v1 = mesh.vertices[mesh.faces[i][1].x];
         Vec3f v2 = mesh.vertices[mesh.faces[i][2].x];
+
+        if (back_facing_triangle(v0, v1, v2))
+        {
+            continue;
+        }
 
         Vec2i v0_trans ((v0.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v0.y + 1.0f) * ((image.height - 1) / 2.0f));
         Vec2i v1_trans ((v1.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v1.y + 1.0f) * ((image.height - 1) / 2.0f));
@@ -37,18 +42,18 @@ int main()
 
         draw_triangle(v0_trans, v1_trans, v2_trans, image, color_rnd);
 
-        for (int j = 0; j < 3; j++)
-        {
-            Vec3f v0 = mesh.vertices[mesh.faces[i][j].x];
-            Vec3f v1 = mesh.vertices[mesh.faces[i][(j + 1) % 3].x];
+        // for (int j = 0; j < 3; j++)
+        // {
+        //     Vec3f v0 = mesh.vertices[mesh.faces[i][j].x];
+        //     Vec3f v1 = mesh.vertices[mesh.faces[i][(j + 1) % 3].x];
 
-            int x0 = (v0.x + 1.0f) * ((image.width  - 1)/ 2.0f);
-            int y0 = (v0.y + 1.0f) * ((image.height - 1) / 2.0f);
-            int x1 = (v1.x + 1.0f) * ((image.width  - 1)/ 2.0f);
-            int y1 = (v1.y + 1.0f) * ((image.height - 1) / 2.0f);
+        //     int x0 = (v0.x + 1.0f) * ((image.width  - 1)/ 2.0f);
+        //     int y0 = (v0.y + 1.0f) * ((image.height - 1) / 2.0f);
+        //     int x1 = (v1.x + 1.0f) * ((image.width  - 1)/ 2.0f);
+        //     int y1 = (v1.y + 1.0f) * ((image.height - 1) / 2.0f);
 
-            draw_line(Vec2i(x0, y0), Vec2i(x1, y1), image, white);
-        }
+        //     draw_line(Vec2i(x0, y0), Vec2i(x1, y1), image, white);
+        // }
     }
 
     // Vec2i a(0,0), b(82,34), c(24,99);
@@ -100,6 +105,17 @@ void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color)
             t_next.y += dt.y;
         }
     }
+}
+
+
+bool back_facing_triangle(Vec3f a, Vec3f b, Vec3f c)
+{
+    Vec3f v1 = subtract(b, a);
+    Vec3f v2 = subtract(c, a);
+    Vec3f normal_ish = cross(v1,v2);
+    
+    // WARNING: assumes camera is facing down z-ed axis
+    return dot(normal_ish, Vec3f(0.0f, 0.0f, 1.0f)) <= 0.0f;
 }
 
 
