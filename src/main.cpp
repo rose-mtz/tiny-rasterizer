@@ -128,8 +128,8 @@ void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color)
 
 Vec3f get_triangle_normal(Vec3f a, Vec3f b, Vec3f c)
 {
-    Vec3f v1 = subtract(b, a);
-    Vec3f v2 = subtract(c, a);
+    Vec3f v1 = b - a;
+    Vec3f v2 = c - a;
     Vec3f normal_ish = cross(v1,v2);
 
     return normalize(normal_ish);
@@ -139,8 +139,8 @@ Vec3f get_triangle_normal(Vec3f a, Vec3f b, Vec3f c)
 bool back_facing_triangle(Vec3f a, Vec3f b, Vec3f c)
 {
     // TODO: pass in normal instead???
-    Vec3f v1 = subtract(b, a);
-    Vec3f v2 = subtract(c, a);
+    Vec3f v1 = b - a;
+    Vec3f v2 = c - a;
     Vec3f normal_ish = cross(v1,v2);
     
     // WARNING: assumes camera is facing down z-ed axis

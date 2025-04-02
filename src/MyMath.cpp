@@ -12,7 +12,7 @@ float determinant(Mat3x3 m)
 }
 
 
-Vec3f multiply(Mat3x3 m, Vec3f v)
+Vec3f operator*(Mat3x3 m, Vec3f v)
 {
     return Vec3f(
         v.x * m.mat[0][0] + v.y * m.mat[0][1] + v.z * m.mat[0][2],
@@ -23,7 +23,7 @@ Vec3f multiply(Mat3x3 m, Vec3f v)
 
 
 // a - b
-Vec3f subtract(Vec3f a, Vec3f b)
+Vec3f operator-(Vec3f a, Vec3f b)
 {
     return Vec3f(a.x - b.x, a.y - b.y, a.z - b.z);
 }
@@ -52,9 +52,9 @@ Vec3f operator*(Vec3f v, float s)
 }
 
 
-Vec3f operator+(Vec3f left, Vec3f right)
+Vec3f operator+(Vec3f a, Vec3f b)
 {
-    return Vec3f(left.x + right.x, left.y + right.y, left.z + right.z);
+    return Vec3f(a.x + b.x, a.y + b.y, a.z + b.z);
 }
 
 

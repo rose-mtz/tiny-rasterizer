@@ -66,12 +66,13 @@ struct Mat3x3
 };
 
 float determinant(Mat3x3 m);
-Vec3f multiply(Mat3x3 m, Vec3f v);
-Vec3f subtract(Vec3f a, Vec3f b);
-Vec3f cross(Vec3f a, Vec3f b);
-float length(Vec3f v);
-Vec3f normalize(Vec3f v);
 float dot(Vec3f a, Vec3f b);
+float length(Vec3f v);
+Vec3f cross(Vec3f a, Vec3f b);
+Vec3f normalize(Vec3f v);
+
+Vec3f operator*(Mat3x3 m, Vec3f v);
+Vec3f operator-(Vec3f a, Vec3f b);
 Vec3f operator*(Vec3f v, float s);
 Vec3f operator/(Vec3f v, float s);
-Vec3f operator+(Vec3f left, Vec3f right);
+Vec3f operator+(Vec3f a, Vec3f b);
