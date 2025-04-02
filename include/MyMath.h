@@ -76,3 +76,8 @@ Vec3f operator-(Vec3f a, Vec3f b);
 Vec3f operator*(Vec3f v, float s);
 Vec3f operator/(Vec3f v, float s);
 Vec3f operator+(Vec3f a, Vec3f b);
+
+Vec3f get_triangle_normal(Vec3f a, Vec3f b, Vec3f c);
+
+Vec3f clampedVec3f(Vec3f v, float min, float max);
+float clampedf(float a, float min, float max);

@@ -5,32 +5,19 @@
 #include "Image.h"
 #include "Mesh.h"
 
+const Vec3f WHITE (1.0f, 1.0f, 1.0f);
+const Vec3f RED   (1.0f, 0.0f, 0.0f);
+const Vec3f GREEN (0.0f, 1.0f, 0.0f);
+const Vec3f BLUE  (0.0f, 0.0f, 1.0f);
+const Vec3f BLACK (0.0f, 0.0f, 0.0f);
 
-/**
- * Should I add:
- * struct Vertex { color, position, normal }
- * struct Triangle { Vertex v1, v2, v3 }
- * maybe later 
- */
-
-
-bool back_facing_triangle(Vec3f a, Vec3f b, Vec3f c);
 void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color);
-// void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f a_color, Vec3f b_color, Vec3f c_color);
-void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f color);
-Vec3f get_triangle_normal(Vec3f a, Vec3f b, Vec3f c);
+void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f a_color, Vec3f b_color, Vec3f c_color);
 
 int main()
 {   
+    Image image; init_image(image, 1000, 1000);
     Mesh mesh = load_mesh("./obj/african_head.obj");
-
-    Image image;
-    init_image(image, 1050, 1050);
-
-    Vec3f white (1.0f, 1.0f, 1.0f);
-    Vec3f red   (1.0f, 0.0f, 0.0f);
-    Vec3f green (0.0f, 1.0f, 0.0f);
-    Vec3f blue  (0.0f, 0.0f, 1.0f);
 
     for (int i = 0; i < mesh.faces.size(); i++)
     {
@@ -38,7 +25,8 @@ int main()
         Vec3f v1 = mesh.vertices[mesh.faces[i][1].x];
         Vec3f v2 = mesh.vertices[mesh.faces[i][2].x];
 
-        if (back_facing_triangle(v0, v1, v2))
+        // Back facing triangle check
+        if (dot(get_triangle_normal(v0, v1, v2), Vec3f(0.0f, 0.0f, 1.0f)) <= 0.0f)
         {
             continue;
         }
@@ -47,18 +35,30 @@ int main()
         Vec2i v1_trans ((v1.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v1.y + 1.0f) * ((image.height - 1) / 2.0f));
         Vec2i v2_trans ((v2.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v2.y + 1.0f) * ((image.height - 1) / 2.0f));
 
-        // Vec3f color_rnd;
-        // color_rnd.x = (std::rand() % 101) / 100.0f;
-        // color_rnd.y = (std::rand() % 101) / 100.0f;
-        // color_rnd.z = (std::rand() % 101) / 100.0f;
+        Vec3f a_color;
+        a_color.x = (std::rand() % 101) / 100.0f;
+        a_color.y = (std::rand() % 101) / 100.0f;
+        a_color.z = (std::rand() % 101) / 100.0f;
+        Vec3f b_color;
+        b_color.x = (std::rand() % 101) / 100.0f;
+        b_color.y = (std::rand() % 101) / 100.0f;
+        b_color.z = (std::rand() % 101) / 100.0f;
+        Vec3f c_color;
+        c_color.x = (std::rand() % 101) / 100.0f;
+        c_color.y = (std::rand() % 101) / 100.0f;
+        c_color.z = (std::rand() % 101) / 100.0f;
 
-        // Faceted shading (GOURAD!)
+        // Shading
         Vec3f normal = get_triangle_normal(v0, v1, v2);
         Vec3f light_dir = Vec3f(0.0f, 0.0f, 1.0f);
-        float shade_color = dot(normal, light_dir); // ASSUMPTION: back facing triangles culled!
-        Vec3f gray_shaded_color (shade_color);
+        float ambient = 0.05f;
+        float diffuse = dot(normal, light_dir);
 
-        draw_triangle(v0_trans, v1_trans, v2_trans, image, gray_shaded_color);
+        a_color = clampedVec3f((a_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f); 
+        b_color = clampedVec3f((b_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f); 
+        c_color = clampedVec3f((c_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f);        
+
+        draw_triangle(v0_trans, v1_trans, v2_trans, image, a_color, b_color, c_color);
 
         // for (int j = 0; j < 3; j++)
         // {
@@ -70,15 +70,9 @@ int main()
         //     int x1 = (v1.x + 1.0f) * ((image.width  - 1)/ 2.0f);
         //     int y1 = (v1.y + 1.0f) * ((image.height - 1) / 2.0f);
 
-        //     draw_line(Vec2i(x0, y0), Vec2i(x1, y1), image, white);
+        //     draw_line(Vec2i(x0, y0), Vec2i(x1, y1), image, WHITE);
         // }
     }
-
-    // Vec2i a(0,0), b(82,34), c(24,99);
-    // draw_triangle(a, b, c, image, red, blue, green);
-    // draw_line(a, b, image, red);
-    // draw_line(a, c, image, red);
-    // draw_line(b, c, image, red);
 
     save_image("./image.bmp", image);
 
@@ -88,10 +82,8 @@ int main()
 
 void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color)
 {
-    assert(p0.x >= 0 && p0.x < image.width);
-    assert(p0.y >= 0 && p0.y < image.height);
-    assert(p1.x >= 0 && p1.x < image.width);
-    assert(p1.y >= 0 && p1.y < image.height);
+    assert(p0.x >= 0 && p0.x < image.width && p0.y >= 0 && p0.y < image.height);
+    assert(p1.x >= 0 && p1.x < image.width && p1.y >= 0 && p1.y < image.height);
 
     // left-to-right (for symmetry)
     if (p0.x > p1.x) std::swap(p0, p1);
@@ -126,45 +118,23 @@ void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color)
 }
 
 
-Vec3f get_triangle_normal(Vec3f a, Vec3f b, Vec3f c)
+void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f a_color, Vec3f b_color, Vec3f c_color)
 {
-    Vec3f v1 = b - a;
-    Vec3f v2 = c - a;
-    Vec3f normal_ish = cross(v1,v2);
-
-    return normalize(normal_ish);
-}
-
-
-bool back_facing_triangle(Vec3f a, Vec3f b, Vec3f c)
-{
-    // TODO: pass in normal instead???
-    Vec3f v1 = b - a;
-    Vec3f v2 = c - a;
-    Vec3f normal_ish = cross(v1,v2);
-    
-    // WARNING: assumes camera is facing down z-ed axis
-    return dot(normal_ish, Vec3f(0.0f, 0.0f, 1.0f)) <= 0.0f;
-}
-
-
-// void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f a_color, Vec3f b_color, Vec3f c_color)
-void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f color)
-{
+    // Bounding box for triangle
     Vec2i min;
     Vec2i max;
-    // bounding box for triangle
     min.x = std::min(a.x, std::min(b.x, c.x));
     min.y = std::min(a.y, std::min(b.y, c.y));
     max.x = std::max(a.x, std::max(b.x, c.x));
     max.y = std::max(a.y, std::max(b.y, c.y));
-    // clip box to be within image
+
+    // Clip box to be within image
     min.x = std::max(min.x, 0);
     min.y = std::max(min.y, 0);
     max.x = std::min(max.x, image.width - 1);
     max.y = std::min(max.y, image.height - 1);
 
-    // center of pixels
+    // Center of pixels
     Vec2f pixel_half (0.5f, 0.5f);
     Vec2f a_center (a.x + pixel_half.x, a.y + pixel_half.y);
     Vec2f b_center (b.x + pixel_half.x, b.y + pixel_half.y);
@@ -178,30 +148,20 @@ void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f color)
         for (int col = min.x; col <= max.x; col++)
         {
             Vec2f pixel_center (col + pixel_half.x, row + pixel_half.y);
+
+            // Cramer's rule
             Mat3x3 D_x (Vec3f(pixel_center, 1), Vec3f(b_center, 1), Vec3f(c_center, 1));
             Mat3x3 D_y (Vec3f(a_center, 1), Vec3f(pixel_center, 1), Vec3f(c_center, 1));
             Mat3x3 D_z (Vec3f(a_center, 1), Vec3f(b_center, 1), Vec3f(pixel_center, 1));
+            float alpha = determinant(D_x) / determinant_of_d;
+            float beta = determinant(D_y) / determinant_of_d;
+            float gamma = determinant(D_z) / determinant_of_d;
 
-            float determinant_of_dx = determinant(D_x);
-            float determinant_of_dy = determinant(D_y);
-            float determinant_of_dz = determinant(D_z);
-
-            float alpha = determinant_of_dx / determinant_of_d;
-            float beta = determinant_of_dy / determinant_of_d;
-            float gamma = determinant_of_dz / determinant_of_d;
-
-            // assert(alpha + beta + gamma == 1.0f); // FAILS sometimes!
-
+            // Check if pixel center is inside triangle
             if (alpha >= 0.0f && beta >= 0.0f && gamma >= 0.0f)
             {
-                // thickness
-                // if ((alpha < 0.025f) || (beta < 0.025f) || (gamma < 0.025f))
-                // {
-                //     Vec3f inter_color = (a_color * alpha) + (b_color * beta) + (c_color * gamma);
-                //     image.image[row][col] = inter_color;
-                // }
-
-                image.image[row][col] = color;
+                Vec3f interpolated_color = (a_color * alpha) + (b_color * beta) + (c_color * gamma);
+                image.image[row][col] = interpolated_color;
             }
         }
     }
