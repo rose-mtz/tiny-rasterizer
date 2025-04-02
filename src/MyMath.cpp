@@ -1,4 +1,5 @@
 #include "MyMath.h"
+#include <cmath>
 
 
 float determinant(Mat3x3 m)
@@ -54,6 +55,24 @@ Vec3f operator*(Vec3f v, float s)
 Vec3f operator+(Vec3f left, Vec3f right)
 {
     return Vec3f(left.x + right.x, left.y + right.y, left.z + right.z);
+}
+
+
+Vec3f operator/(Vec3f v, float s)
+{
+    return v * (1.0f / s);
+}
+
+
+float length(Vec3f v)
+{
+    return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+
+Vec3f normalize(Vec3f v)
+{
+    return v / length(v);
 }
 
 
