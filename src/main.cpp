@@ -174,8 +174,12 @@ void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f a_color, Vec3f
 
             if (alpha >= 0.0f && beta >= 0.0f && gamma >= 0.0f)
             {
-                Vec3f inter_color = (a_color * alpha) + (b_color * beta) + (c_color * gamma);
-                image.image[row][col] = inter_color;
+                // thickness
+                if ((alpha < 0.025f) || (beta < 0.025f) || (gamma < 0.025f))
+                {
+                    Vec3f inter_color = (a_color * alpha) + (b_color * beta) + (c_color * gamma);
+                    image.image[row][col] = inter_color;
+                }
             }
         }
     }
