@@ -69,3 +69,5 @@ Vec3f multiply(Mat3x3 m, Vec3f v);
 Vec3f subtract(Vec3f a, Vec3f b);
 Vec3f cross(Vec3f a, Vec3f b);
 float dot(Vec3f a, Vec3f b);
+Vec3f operator*(Vec3f v, float s);
+Vec3f operator+(Vec3f left, Vec3f right);

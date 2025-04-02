@@ -45,4 +45,16 @@ float dot(Vec3f a, Vec3f b)
 }
 
 
+Vec3f operator*(Vec3f v, float s)
+{
+    return Vec3f(v.x * s, v.y * s, v.z * s);
+}
+
+
+Vec3f operator+(Vec3f left, Vec3f right)
+{
+    return Vec3f(left.x + right.x, left.y + right.y, left.z + right.z);
+}
+
+
 // What the fuck am I doing!

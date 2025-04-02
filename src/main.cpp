@@ -6,58 +6,68 @@
 #include "Mesh.h"
 
 
+/**
+ * Should I add:
+ * struct Vertex { color, position, normal }
+ * struct Triangle { Vertex v1, v2, v3 }
+ * maybe later 
+ */
+
+
 bool back_facing_triangle(Vec3f a, Vec3f b, Vec3f c);
 void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color);
-void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f color);
+void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f a_color, Vec3f b_color, Vec3f c_color);
 
 int main()
 {   
     Mesh mesh = load_mesh("./obj/african_head.obj");
 
     Image image;
-    init_image(image, 1000, 1000);
+    init_image(image, 100, 100);
 
     Vec3f white (1.0f, 1.0f, 1.0f);
     Vec3f red   (1.0f, 0.0f, 0.0f);
+    Vec3f green (0.0f, 1.0f, 0.0f);
+    Vec3f blue  (0.0f, 0.0f, 1.0f);
 
-    for (int i = 0; i < mesh.faces.size(); i++)
-    {
-        Vec3f v0 = mesh.vertices[mesh.faces[i][0].x];
-        Vec3f v1 = mesh.vertices[mesh.faces[i][1].x];
-        Vec3f v2 = mesh.vertices[mesh.faces[i][2].x];
+    // for (int i = 0; i < mesh.faces.size(); i++)
+    // {
+    //     Vec3f v0 = mesh.vertices[mesh.faces[i][0].x];
+    //     Vec3f v1 = mesh.vertices[mesh.faces[i][1].x];
+    //     Vec3f v2 = mesh.vertices[mesh.faces[i][2].x];
 
-        if (back_facing_triangle(v0, v1, v2))
-        {
-            continue;
-        }
+    //     if (back_facing_triangle(v0, v1, v2))
+    //     {
+    //         continue;
+    //     }
 
-        Vec2i v0_trans ((v0.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v0.y + 1.0f) * ((image.height - 1) / 2.0f));
-        Vec2i v1_trans ((v1.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v1.y + 1.0f) * ((image.height - 1) / 2.0f));
-        Vec2i v2_trans ((v2.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v2.y + 1.0f) * ((image.height - 1) / 2.0f));
+    //     Vec2i v0_trans ((v0.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v0.y + 1.0f) * ((image.height - 1) / 2.0f));
+    //     Vec2i v1_trans ((v1.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v1.y + 1.0f) * ((image.height - 1) / 2.0f));
+    //     Vec2i v2_trans ((v2.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v2.y + 1.0f) * ((image.height - 1) / 2.0f));
 
-        Vec3f color_rnd;
-        color_rnd.x = (std::rand() % 101) / 100.0f;
-        color_rnd.y = (std::rand() % 101) / 100.0f;
-        color_rnd.z = (std::rand() % 101) / 100.0f;
+    //     Vec3f color_rnd;
+    //     color_rnd.x = (std::rand() % 101) / 100.0f;
+    //     color_rnd.y = (std::rand() % 101) / 100.0f;
+    //     color_rnd.z = (std::rand() % 101) / 100.0f;
 
-        draw_triangle(v0_trans, v1_trans, v2_trans, image, color_rnd);
+    //     draw_triangle(v0_trans, v1_trans, v2_trans, image, color_rnd);
 
-        // for (int j = 0; j < 3; j++)
-        // {
-        //     Vec3f v0 = mesh.vertices[mesh.faces[i][j].x];
-        //     Vec3f v1 = mesh.vertices[mesh.faces[i][(j + 1) % 3].x];
+    //     // for (int j = 0; j < 3; j++)
+    //     // {
+    //     //     Vec3f v0 = mesh.vertices[mesh.faces[i][j].x];
+    //     //     Vec3f v1 = mesh.vertices[mesh.faces[i][(j + 1) % 3].x];
 
-        //     int x0 = (v0.x + 1.0f) * ((image.width  - 1)/ 2.0f);
-        //     int y0 = (v0.y + 1.0f) * ((image.height - 1) / 2.0f);
-        //     int x1 = (v1.x + 1.0f) * ((image.width  - 1)/ 2.0f);
-        //     int y1 = (v1.y + 1.0f) * ((image.height - 1) / 2.0f);
+    //     //     int x0 = (v0.x + 1.0f) * ((image.width  - 1)/ 2.0f);
+    //     //     int y0 = (v0.y + 1.0f) * ((image.height - 1) / 2.0f);
+    //     //     int x1 = (v1.x + 1.0f) * ((image.width  - 1)/ 2.0f);
+    //     //     int y1 = (v1.y + 1.0f) * ((image.height - 1) / 2.0f);
 
-        //     draw_line(Vec2i(x0, y0), Vec2i(x1, y1), image, white);
-        // }
-    }
+    //     //     draw_line(Vec2i(x0, y0), Vec2i(x1, y1), image, white);
+    //     // }
+    // }
 
-    // Vec2i a(0,0), b(82,34), c(24,99);
-    // draw_triangle(a, b, c, image, white);
+    Vec2i a(0,0), b(82,34), c(24,99);
+    draw_triangle(a, b, c, image, red, blue, green);
     // draw_line(a, b, image, red);
     // draw_line(a, c, image, red);
     // draw_line(b, c, image, red);
@@ -119,7 +129,7 @@ bool back_facing_triangle(Vec3f a, Vec3f b, Vec3f c)
 }
 
 
-void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f color)
+void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f a_color, Vec3f b_color, Vec3f c_color)
 {
     Vec2i min;
     Vec2i max;
@@ -164,7 +174,8 @@ void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f color)
 
             if (alpha >= 0.0f && beta >= 0.0f && gamma >= 0.0f)
             {
-                image.image[row][col] = color;
+                Vec3f inter_color = (a_color * alpha) + (b_color * beta) + (c_color * gamma);
+                image.image[row][col] = inter_color;
             }
         }
     }
