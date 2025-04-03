@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <limits>
 #include "tgaimage.h"
-#include "Mesh.h"
+#include "model.h"
 
 // const Vec3f WHITE (1.0f, 1.0f, 1.0f);
 // const Vec3f RED   (1.0f, 0.0f, 0.0f);
@@ -25,7 +25,7 @@ void draw_triangle(Vec2i a, Vec2i b, Vec2i c, TGAImage& image, Vec3f a_color, Ve
 int main()
 {   
     TGAImage image(width, height, TGAImage::RGB);
-    Mesh mesh = load_mesh("./obj/african_head.obj");
+    Model model ("./obj/african_head.obj");
 
     float** z_buffer = new float*[height];
     for (int i = 0; i < height; i++)
@@ -37,11 +37,12 @@ int main()
         }
     }
 
-    for (int i = 0; i < mesh.faces.size(); i++)
+    for (int i = 0; i < model.nfaces(); i++)
     {
-        Vec3f v0 = mesh.vertices[mesh.faces[i][0].x];
-        Vec3f v1 = mesh.vertices[mesh.faces[i][1].x];
-        Vec3f v2 = mesh.vertices[mesh.faces[i][2].x];
+        std::vector<int> face = model.face(i);
+        Vec3f v0 = model.vert(face[0]);
+        Vec3f v1 = model.vert(face[1]);
+        Vec3f v2 = model.vert(face[2]);
 
         // Back facing triangle check
         if (get_triangle_normal(v0, v1, v2) * Vec3f(0.0f, 0.0f, 1.0f) <= 0.0f)
@@ -93,8 +94,6 @@ int main()
         //     draw_line(Vec2i(x0, y0), Vec2i(x1, y1), image, RED);
         // }
     }
-
-    // save_image("./image.bmp", image);
     
     image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
     image.write_tga_file("output.tga");
