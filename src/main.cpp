@@ -169,7 +169,7 @@ void draw_triangle(Vec2i a, Vec2i b, Vec2i c, TGAImage& image, Vec3f a_color, Ve
     Vec2f b_center (b.x + pixel_half.x, b.y + pixel_half.y);
     Vec2f c_center (c.x + pixel_half.x, c.y + pixel_half.y);
 
-    Mat3x3 D (Vec3f(a_center.x, a_center.y, 1), Vec3f(b_center.x, b_center.y, 1), Vec3f(c_center.x, c_center.y, 1));
+    Mat3x3f D (Vec3f(a_center.x, a_center.y, 1), Vec3f(b_center.x, b_center.y, 1), Vec3f(c_center.x, c_center.y, 1));
     float determinant_of_d = D.determinant();
 
     for (int row = min.y; row <= max.y; row++)
@@ -179,9 +179,9 @@ void draw_triangle(Vec2i a, Vec2i b, Vec2i c, TGAImage& image, Vec3f a_color, Ve
             Vec2f pixel_center (col + pixel_half.x, row + pixel_half.y);
 
             // Cramer's rule
-            Mat3x3 D_x (Vec3f(pixel_center.x, pixel_center.y, 1), Vec3f(b_center.x, b_center.y, 1), Vec3f(c_center.x, c_center.y, 1));
-            Mat3x3 D_y (Vec3f(a_center.x, a_center.y, 1), Vec3f(pixel_center.x, pixel_center.y, 1), Vec3f(c_center.x, c_center.y, 1));
-            Mat3x3 D_z (Vec3f(a_center.x, a_center.y, 1), Vec3f(b_center.x, b_center.y, 1), Vec3f(pixel_center.x, pixel_center.y, 1));
+            Mat3x3f D_x (Vec3f(pixel_center.x, pixel_center.y, 1), Vec3f(b_center.x, b_center.y, 1), Vec3f(c_center.x, c_center.y, 1));
+            Mat3x3f D_y (Vec3f(a_center.x, a_center.y, 1), Vec3f(pixel_center.x, pixel_center.y, 1), Vec3f(c_center.x, c_center.y, 1));
+            Mat3x3f D_z (Vec3f(a_center.x, a_center.y, 1), Vec3f(b_center.x, b_center.y, 1), Vec3f(pixel_center.x, pixel_center.y, 1));
             float alpha = D_x.determinant() / determinant_of_d;
             float beta = D_y.determinant() / determinant_of_d;
             float gamma = D_z.determinant() / determinant_of_d;

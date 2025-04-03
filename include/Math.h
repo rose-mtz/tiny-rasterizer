@@ -88,15 +88,15 @@ template <class t> std::ostream& operator<<(std::ostream& s, Vec3<t>& v) {
 }
 
 
-struct Mat3x3
+struct Mat3x3f
 {
     // row-major
     float mat[3][3];
 
 	// Constructors
 
-    Mat3x3() {}
-    Mat3x3(Vec3f x, Vec3f y, Vec3f z) 
+    Mat3x3f() {}
+    Mat3x3f(Vec3f x, Vec3f y, Vec3f z) 
     {
         mat[0][0] = x.x;
         mat[1][0] = x.y;
