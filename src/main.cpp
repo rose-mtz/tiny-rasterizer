@@ -3,28 +3,35 @@
 #include <cassert>
 #include <cstdlib>
 #include <limits>
-#include "Image.h"
+#include "tgaimage.h"
 #include "Mesh.h"
 
-const Vec3f WHITE (1.0f, 1.0f, 1.0f);
-const Vec3f RED   (1.0f, 0.0f, 0.0f);
-const Vec3f GREEN (0.0f, 1.0f, 0.0f);
-const Vec3f BLUE  (0.0f, 0.0f, 1.0f);
-const Vec3f BLACK (0.0f, 0.0f, 0.0f);
+// const Vec3f WHITE (1.0f, 1.0f, 1.0f);
+// const Vec3f RED   (1.0f, 0.0f, 0.0f);
+// const Vec3f GREEN (0.0f, 1.0f, 0.0f);
+// const Vec3f BLUE  (0.0f, 0.0f, 1.0f);
+// const Vec3f BLACK (0.0f, 0.0f, 0.0f);
 
-void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color);
-void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f a_color, Vec3f b_color, Vec3f c_color, float a_depth, float b_depth, float c_depth, float** z_buffer);
+const TGAColor WHITE = TGAColor(255, 255, 255, 255);
+const TGAColor RED   = TGAColor(255, 0,   0,   255);
+const TGAColor GREEN = TGAColor(0,   255, 0,   255);
+const int width  = 1000;
+const int height = 1000;
+
+TGAColor to_tgacolor(Vec3f color);
+void draw_line(Vec2i p0, Vec2i p1, TGAImage& image, Vec3f color);
+void draw_triangle(Vec2i a, Vec2i b, Vec2i c, TGAImage& image, Vec3f a_color, Vec3f b_color, Vec3f c_color, float a_depth, float b_depth, float c_depth, float** z_buffer);
 
 int main()
 {   
-    Image image; init_image(image, 1000, 1000);
+    TGAImage image(width, height, TGAImage::RGB);
     Mesh mesh = load_mesh("./obj/african_head.obj");
 
-    float** z_buffer = new float*[image.height];
-    for (int i = 0; i < image.height; i++)
+    float** z_buffer = new float*[height];
+    for (int i = 0; i < height; i++)
     {
-        z_buffer[i] = new float[image.width];
-        for (int j = 0; j < image.width; j++)
+        z_buffer[i] = new float[width];
+        for (int j = 0; j < width; j++)
         {
             z_buffer[i][j] = std::numeric_limits<float>::max();
         }
@@ -42,9 +49,9 @@ int main()
             continue;
         }
 
-        Vec2i v0_trans ((v0.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v0.y + 1.0f) * ((image.height - 1) / 2.0f));
-        Vec2i v1_trans ((v1.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v1.y + 1.0f) * ((image.height - 1) / 2.0f));
-        Vec2i v2_trans ((v2.x + 1.0f) * ((image.width  - 1)/ 2.0f), (v2.y + 1.0f) * ((image.height - 1) / 2.0f));
+        Vec2i v0_trans ((v0.x + 1.0f) * ((width  - 1)/ 2.0f), (v0.y + 1.0f) * ((height - 1) / 2.0f));
+        Vec2i v1_trans ((v1.x + 1.0f) * ((width  - 1)/ 2.0f), (v1.y + 1.0f) * ((height - 1) / 2.0f));
+        Vec2i v2_trans ((v2.x + 1.0f) * ((width  - 1)/ 2.0f), (v2.y + 1.0f) * ((height - 1) / 2.0f));
 
         // Vec3f a_color;
         // a_color.x = (std::rand() % 101) / 100.0f;
@@ -87,16 +94,25 @@ int main()
         // }
     }
 
-    save_image("./image.bmp", image);
+    // save_image("./image.bmp", image);
+    
+    image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
+    image.write_tga_file("output.tga");
 
     return 0;
 }
 
 
-void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color)
+TGAColor to_tgacolor(Vec3f color)
 {
-    assert(p0.x >= 0 && p0.x < image.width && p0.y >= 0 && p0.y < image.height);
-    assert(p1.x >= 0 && p1.x < image.width && p1.y >= 0 && p1.y < image.height);
+    return TGAColor(int(color.x * 255.99), int(color.y * 255.99), int(color.z * 255.99), 255);
+}
+
+
+void draw_line(Vec2i p0, Vec2i p1, TGAImage& image, Vec3f color)
+{
+    assert(p0.x >= 0 && p0.x < width && p0.y >= 0 && p0.y < height);
+    assert(p1.x >= 0 && p1.x < width && p1.y >= 0 && p1.y < height);
 
     // left-to-right (for symmetry)
     if (p0.x > p1.x) std::swap(p0, p1);
@@ -111,7 +127,7 @@ void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color)
 
     while (true)
     {
-        image.image[current_pixel.y][current_pixel.x] = color;
+        image.set(current_pixel.x, current_pixel.y, to_tgacolor(color));
         if (current_pixel.x == p1.x && current_pixel.y == p1.y)
         {
             break;
@@ -131,7 +147,7 @@ void draw_line(Vec2i p0, Vec2i p1, Image& image, Vec3f color)
 }
 
 
-void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f a_color, Vec3f b_color, Vec3f c_color, float a_depth, float b_depth, float c_depth, float** z_buffer)
+void draw_triangle(Vec2i a, Vec2i b, Vec2i c, TGAImage& image, Vec3f a_color, Vec3f b_color, Vec3f c_color, float a_depth, float b_depth, float c_depth, float** z_buffer)
 {
     // Bounding box for triangle
     Vec2i min;
@@ -144,8 +160,8 @@ void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f a_color, Vec3f
     // Clip box to be within image
     min.x = std::max(min.x, 0);
     min.y = std::max(min.y, 0);
-    max.x = std::min(max.x, image.width - 1);
-    max.y = std::min(max.y, image.height - 1);
+    max.x = std::min(max.x, width - 1);
+    max.y = std::min(max.y, height - 1);
 
     // Center of pixels
     Vec2f pixel_half (0.5f, 0.5f);
@@ -179,7 +195,7 @@ void draw_triangle(Vec2i a, Vec2i b, Vec2i c, Image& image, Vec3f a_color, Vec3f
                 if (z_buffer[row][col] > interpolated_depth)
                 {
                     Vec3f interpolated_color = clampedVec3f((a_color * alpha) + (b_color * beta) + (c_color * gamma), 0.0f, 1.0f);
-                    image.image[row][col] = interpolated_color;
+                    image.set(col, row, to_tgacolor(interpolated_color));
                     z_buffer[row][col] = interpolated_depth;
                 }
             }
