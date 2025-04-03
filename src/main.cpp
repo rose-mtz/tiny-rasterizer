@@ -44,7 +44,7 @@ int main()
         Vec3f v2 = mesh.vertices[mesh.faces[i][2].x];
 
         // Back facing triangle check
-        if (dot(get_triangle_normal(v0, v1, v2), Vec3f(0.0f, 0.0f, 1.0f)) <= 0.0f)
+        if (get_triangle_normal(v0, v1, v2) * Vec3f(0.0f, 0.0f, 1.0f) <= 0.0f)
         {
             continue;
         }
@@ -70,7 +70,7 @@ int main()
         Vec3f normal = get_triangle_normal(v0, v1, v2);
         Vec3f light_dir = Vec3f(0.0f, 0.0f, 1.0f);
         float ambient = 0.00f;
-        float diffuse = dot(normal, light_dir);
+        float diffuse = normal * light_dir;
         Vec3f flat_gray_shading = clampedVec3f(Vec3f(diffuse + ambient), 0.0f, 1.0f);
 
         // a_color = clampedVec3f((a_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f); 
@@ -169,8 +169,8 @@ void draw_triangle(Vec2i a, Vec2i b, Vec2i c, TGAImage& image, Vec3f a_color, Ve
     Vec2f b_center (b.x + pixel_half.x, b.y + pixel_half.y);
     Vec2f c_center (c.x + pixel_half.x, c.y + pixel_half.y);
 
-    Mat3x3 D (Vec3f(a_center, 1), Vec3f(b_center, 1), Vec3f(c_center, 1));
-    float determinant_of_d = determinant(D);
+    Mat3x3 D (Vec3f(a_center.x, a_center.y, 1), Vec3f(b_center.x, b_center.y, 1), Vec3f(c_center.x, c_center.y, 1));
+    float determinant_of_d = D.determinant();
 
     for (int row = min.y; row <= max.y; row++)
     {
@@ -179,12 +179,12 @@ void draw_triangle(Vec2i a, Vec2i b, Vec2i c, TGAImage& image, Vec3f a_color, Ve
             Vec2f pixel_center (col + pixel_half.x, row + pixel_half.y);
 
             // Cramer's rule
-            Mat3x3 D_x (Vec3f(pixel_center, 1), Vec3f(b_center, 1), Vec3f(c_center, 1));
-            Mat3x3 D_y (Vec3f(a_center, 1), Vec3f(pixel_center, 1), Vec3f(c_center, 1));
-            Mat3x3 D_z (Vec3f(a_center, 1), Vec3f(b_center, 1), Vec3f(pixel_center, 1));
-            float alpha = determinant(D_x) / determinant_of_d;
-            float beta = determinant(D_y) / determinant_of_d;
-            float gamma = determinant(D_z) / determinant_of_d;
+            Mat3x3 D_x (Vec3f(pixel_center.x, pixel_center.y, 1), Vec3f(b_center.x, b_center.y, 1), Vec3f(c_center.x, c_center.y, 1));
+            Mat3x3 D_y (Vec3f(a_center.x, a_center.y, 1), Vec3f(pixel_center.x, pixel_center.y, 1), Vec3f(c_center.x, c_center.y, 1));
+            Mat3x3 D_z (Vec3f(a_center.x, a_center.y, 1), Vec3f(b_center.x, b_center.y, 1), Vec3f(pixel_center.x, pixel_center.y, 1));
+            float alpha = D_x.determinant() / determinant_of_d;
+            float beta = D_y.determinant() / determinant_of_d;
+            float gamma = D_z.determinant() / determinant_of_d;
 
             // Check if pixel center is inside triangle
             if (alpha >= 0.0f && beta >= 0.0f && gamma >= 0.0f)
