@@ -132,6 +132,11 @@ struct Mat3x3f
 			mat[0][2] * (mat[1][0] * mat[2][1] - mat[1][1] * mat[2][0])
 		);
 	}
+
+	Vec3f col(int i)
+	{
+		return Vec3f(mat[0][i], mat[1][i], mat[2][i]);
+	}
 };
 
 
