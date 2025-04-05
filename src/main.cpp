@@ -17,8 +17,8 @@ const TGAColor TGA_RED   = TGAColor(255, 0,   0,   255);
 const TGAColor TGA_GREEN = TGAColor(0,   255, 0,   255);
 const int width  = 1000;
 const int height = 1000;
-const float virtual_screen_width = 1.0;
-const float virtual_screen_height = 1.0;
+const float virtual_screen_width = 0.65;
+const float virtual_screen_height = 0.65;
 
 TGAColor to_tgacolor(Vec3f color);
 // void draw_line(Vec2i p0, Vec2i p1, TGAImage& image, Vec3f color);
@@ -84,23 +84,23 @@ int main()
         
         // send to rasterizer
 
-        // Vec3f a_color;
-        // a_color.x = (std::rand() % 101) / 100.0f;
-        // a_color.y = (std::rand() % 101) / 100.0f;
-        // a_color.z = (std::rand() % 101) / 100.0f;
-        // Vec3f b_color;
-        // b_color.x = (std::rand() % 101) / 100.0f;
-        // b_color.y = (std::rand() % 101) / 100.0f;
-        // b_color.z = (std::rand() % 101) / 100.0f;
-        // Vec3f c_color;
-        // c_color.x = (std::rand() % 101) / 100.0f;
-        // c_color.y = (std::rand() % 101) / 100.0f;
-        // c_color.z = (std::rand() % 101) / 100.0f;
+        Vec3f a_color;
+        a_color.x = (std::rand() % 101) / 100.0f;
+        a_color.y = (std::rand() % 101) / 100.0f;
+        a_color.z = (std::rand() % 101) / 100.0f;
+        Vec3f b_color;
+        b_color.x = (std::rand() % 101) / 100.0f;
+        b_color.y = (std::rand() % 101) / 100.0f;
+        b_color.z = (std::rand() % 101) / 100.0f;
+        Vec3f c_color;
+        c_color.x = (std::rand() % 101) / 100.0f;
+        c_color.y = (std::rand() % 101) / 100.0f;
+        c_color.z = (std::rand() % 101) / 100.0f;
 
         // Shading
         Vec3f normal = get_triangle_normal(v0, v1, v2);
         Vec3f light_dir = Vec3f(0.0f, 0.0f, 1.0f);
-        float ambient = 0.0f;
+        float ambient = 0.01f;
         float diffuse = normal * light_dir;
         Vec3f flat_gray_shading = clampedVec3f(Vec3f(diffuse + ambient), 0.0f, 1.0f);
 
@@ -109,8 +109,8 @@ int main()
         // c_color = clampedVec3f((c_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f);        
 
         float cam_z = 3.0f;
-        // draw_triangle(v0_trans, v1_trans, v2_trans, image, flat_gray_shading, flat_gray_shading, flat_gray_shading, cam_z - v0.z, cam_z - v1.z, cam_z - v2.z, z_buffer);
         draw_triangle(v0_device, v1_device, v2_device, image, flat_gray_shading, flat_gray_shading, flat_gray_shading, z_buffer);
+        // draw_triangle(v0_device, v1_device, v2_device, image, a_color, b_color, c_color, z_buffer);
 
         draw_line(v0_device, v1_device, image, RED);
         draw_line(v1_device, v2_device, image, RED);
@@ -136,6 +136,8 @@ TGAColor to_tgacolor(Vec3f color)
  */
 void draw_line(Vec3f p0, Vec3f p1, TGAImage& image, Vec3f color)
 {
+    // BUG TO FIX: bounding box also clips thickness!!!
+
     // Bounding box
     Vec2i min, max;
     min.x = std::min(p0.x, p1.x);
@@ -191,6 +193,12 @@ void draw_triangle(Vec3f a, Vec3f b, Vec3f c, TGAImage& image, Vec3f a_color, Ve
 
     Mat3x3f D (Vec3f(a.x, a.y, 1.0f), Vec3f(b.x, b.y, 1.0f), Vec3f(c.x, c.y, 1.0f));
     float determinant = D.determinant();
+
+    if (std::abs(determinant) < 1e-5f)
+    {
+        std::cout << "degenerate triangle, you little bastard!\n"; // for testing, haven't seen it log once yet
+        return;
+    };
 
     for (int row = min.y; row <= max.y; row++)
     {
