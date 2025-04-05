@@ -16,6 +16,12 @@ Vec3f clampedVec3f(Vec3f v, float min, float max)
 }
 
 
+Vec2f clampedVec2f(Vec2f v, float min, float max)
+{
+    return Vec2f(clampedf(v.x, min, max), clampedf(v.y, min, max));
+}
+
+
 float clampedf(float a, float min, float max)
 {
     if (a < min)

@@ -10,35 +10,51 @@ Model::Model(const char *filename) : verts_(), faces_()
 {
     std::ifstream in;
     in.open (filename, std::ifstream::in);
-    if (in.fail()) return;
+    if (in.fail()) 
+    {
+        std::cerr << "Error:: could not open model file " << filename << '\n';
+        return;
+    }
     std::string line;
     while (!in.eof())
     {
         std::getline(in, line);
         std::istringstream iss(line.c_str());
         char trash;
-        // TODO: proccess uv coords, and normals
         if (!line.compare(0, 2, "v "))
         {
             iss >> trash;
             Vec3f v;
             for (int i=0;i<3;i++) iss >> v.raw[i];
             verts_.push_back(v);
-        } else if (!line.compare(0, 2, "f "))
+        } 
+        else if (!line.compare(0, 2, "vt"))
+        {
+            iss >> trash >> trash;
+            Vec2f uv;
+            for (int i=0;i<2;i++) iss >> uv.raw[i];
+            uvs_.push_back(uv);
+        }
+        else if (!line.compare(0, 2, "vn"))
+        {
+            iss >> trash >> trash;
+            Vec3f n;
+            for (int i=0;i<3;i++) iss >> n.raw[i];
+            norms_.push_back(n);
+        }
+        else if (!line.compare(0, 2, "f "))
         {
             std::vector<int> f;
-            int itrash, idx;
+            int v_idx, t_idx, n_idx;
             iss >> trash;
-            // Throws away uv, and normal indicies, keep vertex indicies
-            while (iss >> idx >> trash >> itrash >> trash >> itrash)
+            while (iss >> v_idx >> trash >> t_idx >> trash >> n_idx)
             {
-                idx--; // in wavefront obj all indices start at 1, not zero
-                f.push_back(idx);
+                v_idx--; t_idx--; n_idx--; // zero index
+                f.push_back(v_idx); f.push_back(t_idx); f.push_back(n_idx);
             }
             faces_.push_back(f);
         }
     }
-    std::cerr << "# v# " << verts_.size() << " f# "  << faces_.size() << std::endl;
 }
 
 
@@ -68,4 +84,14 @@ std::vector<int> Model::face(int idx)
 Vec3f Model::vert(int i)
 {
     return verts_[i];
+}
+
+Vec3f Model::norm(int i)
+{
+    return norms_[i];
+}
+
+Vec2f Model::uv(int i)
+{
+    return uvs_[i];
 }

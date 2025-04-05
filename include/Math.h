@@ -149,3 +149,4 @@ struct Mat3x3f
 Vec3f get_triangle_normal(Vec3f a, Vec3f b, Vec3f c);
 float clampedf(float a, float min, float max);
 Vec3f clampedVec3f(Vec3f v, float min, float max);
+Vec2f clampedVec2f(Vec2f v, float min, float max);

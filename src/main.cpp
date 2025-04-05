@@ -23,11 +23,15 @@ const float virtual_screen_height = 0.65;
 TGAColor to_tgacolor(Vec3f color);
 // void draw_line(Vec2i p0, Vec2i p1, TGAImage& image, Vec3f color);
 void draw_line(Vec3f p0, Vec3f p1, TGAImage& image, Vec3f color);
-void draw_triangle(Vec3f a, Vec3f b, Vec3f c, TGAImage& image, Vec3f a_color, Vec3f b_color, Vec3f c_color, float** z_buffer);
+// void draw_triangle(Vec3f a, Vec3f b, Vec3f c, TGAImage& image, Vec3f a_color, Vec3f b_color, Vec3f c_color, float** z_buffer, TGAImage& texture);
+void draw_triangle(Vec3f a, Vec3f b, Vec3f c, TGAImage& image, Vec2f a_uv, Vec2f b_uv, Vec2f c_uv, float** z_buffer, TGAImage& texture);
 
 int main()
 {   
     TGAImage image(width, height, TGAImage::RGB);
+    TGAImage texture;
+    texture.read_tga_file("./obj/african_head_diffuse.tga");
+    texture.flip_vertically();
     Model model ("./obj/african_head.obj");
 
     float** z_buffer = new float*[height];
@@ -44,8 +48,12 @@ int main()
     {
         std::vector<int> face = model.face(i);
         Vec3f v0 = model.vert(face[0]);
-        Vec3f v1 = model.vert(face[1]);
-        Vec3f v2 = model.vert(face[2]);
+        Vec3f v1 = model.vert(face[3]);
+        Vec3f v2 = model.vert(face[6]);
+
+        Vec2f uv0 = model.uv(face[1]);
+        Vec2f uv1 = model.uv(face[4]);
+        Vec2f uv2 = model.uv(face[7]);
 
         // Back facing triangle check
         if (get_triangle_normal(v0, v1, v2) * Vec3f(0.0f, 0.0f, 1.0f) <= 0.0f)
@@ -106,15 +114,15 @@ int main()
 
         // a_color = clampedVec3f((a_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f); 
         // b_color = clampedVec3f((b_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f); 
-        // c_color = clampedVec3f((c_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f);        
-
-        float cam_z = 3.0f;
-        draw_triangle(v0_device, v1_device, v2_device, image, flat_gray_shading, flat_gray_shading, flat_gray_shading, z_buffer);
+        // c_color = clampedVec3f((c_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f);    
+        
+        // draw_triangle(v0_device, v1_device, v2_device, image, flat_gray_shading, flat_gray_shading, flat_gray_shading, z_buffer);
         // draw_triangle(v0_device, v1_device, v2_device, image, a_color, b_color, c_color, z_buffer);
+        draw_triangle(v0_device, v1_device, v2_device, image, uv0, uv1, uv2, z_buffer, texture);
 
-        draw_line(v0_device, v1_device, image, RED);
-        draw_line(v1_device, v2_device, image, RED);
-        draw_line(v2_device, v0_device, image, RED);
+        // draw_line(v0_device, v1_device, image, RED);
+        // draw_line(v1_device, v2_device, image, RED);
+        // draw_line(v2_device, v0_device, image, RED);
     }
 
     image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
@@ -174,7 +182,8 @@ void draw_line(Vec3f p0, Vec3f p1, TGAImage& image, Vec3f color)
  * Vertices should be in DEVICE COORDINATES.
  * Bottom left of device is origin.
  */
-void draw_triangle(Vec3f a, Vec3f b, Vec3f c, TGAImage& image, Vec3f a_color, Vec3f b_color, Vec3f c_color, float** z_buffer)
+// void draw_triangle(Vec3f a, Vec3f b, Vec3f c, TGAImage& image, Vec3f a_color, Vec3f b_color, Vec3f c_color, float** z_buffer, TGAImage& texture)
+void draw_triangle(Vec3f a, Vec3f b, Vec3f c, TGAImage& image, Vec2f a_uv, Vec2f b_uv, Vec2f c_uv, float** z_buffer, TGAImage& texture)
 {
     // QUESTION: are positive depth values in front of screen? if so should they be culled?
 
@@ -220,8 +229,14 @@ void draw_triangle(Vec3f a, Vec3f b, Vec3f c, TGAImage& image, Vec3f a_color, Ve
                 // Depth check
                 if (z_buffer[row][col] < interpolated_depth)
                 {
-                    Vec3f interpolated_color = clampedVec3f((a_color * alpha) + (b_color * beta) + (c_color * gamma), 0.0f, 1.0f);
-                    image.set(col, row, to_tgacolor(interpolated_color));
+                    // Vec3f interpolated_color = clampedVec3f((a_color * alpha) + (b_color * beta) + (c_color * gamma), 0.0f, 1.0f);
+                    // image.set(col, row, to_tgacolor(interpolated_color));
+
+                    Vec2f interpolated_uv = clampedVec2f((a_uv * alpha) + (b_uv * beta) + (c_uv * gamma), 0.0f, 1.0f);
+                    Vec2i texture_pixel = Vec2i((texture.get_width() - 1) * interpolated_uv.x, (texture.get_height() - 1) * interpolated_uv.y);
+                    TGAColor texture_color = texture.get(texture_pixel.x, texture_pixel.y);
+                    image.set(col, row, texture_color);
+
                     z_buffer[row][col] = interpolated_depth;
                 }
             }
