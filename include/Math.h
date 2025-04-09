@@ -135,7 +135,7 @@ struct Mat3x3f
 	// Constructors
 
     Mat3x3f() {}
-    Mat3x3f(Vec3f x, Vec3f y, Vec3f z) 
+    Mat3x3f(Vec3f x, Vec3f y, Vec3f z)
     {
         mat[0][0] = x.x;
         mat[1][0] = x.y;
@@ -161,6 +161,11 @@ struct Mat3x3f
 		);
 	}
 
+	Mat3x3f operator*(float s)
+	{
+		return Mat3x3f(col(0) * s, col(1) * s, col(2) * s);
+	}
+
 	// Methods
 
 	float determinant()
@@ -175,6 +180,56 @@ struct Mat3x3f
 	Vec3f col(int i)
 	{
 		return Vec3f(mat[0][i], mat[1][i], mat[2][i]);
+	}
+
+	Mat3x3f inv()
+	{
+		return adj() * (1.0f / determinant());
+	}
+
+	Mat3x3f adj()
+	{
+		return cofactor().transposed();
+	}
+
+	Mat3x3f cofactor()
+	{
+		float a = mat[0][0];
+		float b = mat[0][1];
+		float c = mat[0][2];
+
+		float d = mat[1][0];
+		float e = mat[1][1];
+		float f = mat[1][2];
+
+		float g = mat[2][0];
+		float h = mat[2][1];
+		float i = mat[2][2];
+
+		return Mat3x3f(
+			Vec3f(e*i - f*h, c*h - b*i, b*h - c*e),
+			Vec3f(f*g - d*i, a*i - c*g, b*g - a*h),
+			Vec3f(d*f - e*g, c*d - a*f, a*e - b*d)
+		);
+	}
+
+	Mat3x3f transposed()
+	{
+		Mat3x3f trans;
+
+		trans.mat[0][0] = mat[0][0];
+        trans.mat[0][1] = mat[1][0];
+        trans.mat[0][2] = mat[2][0];
+
+        trans.mat[1][0] = mat[0][1];
+        trans.mat[1][1] = mat[1][1];
+        trans.mat[1][2] = mat[2][1];
+
+        trans.mat[2][0] = mat[0][2];
+        trans.mat[2][1] = mat[1][2];
+        trans.mat[2][2] = mat[2][2];
+
+		return trans;
 	}
 };
 
@@ -231,6 +286,11 @@ struct Mat4x4f
 	}
 
 	// Methods
+
+	Mat3x3f truncated()
+	{
+		return Mat3x3f(cols[0].xyz(), cols[1].xyz(), cols[2].xyz());
+	}
 };
 
 

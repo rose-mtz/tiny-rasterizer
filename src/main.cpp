@@ -36,6 +36,7 @@ struct LinePixel
 };
 
 
+Vec3f normal_colored(Vec3f normal);
 TGAColor to_tgacolor(Vec3f color);
 Vec3f to_vec3fcolor(TGAColor color);
 std::vector<LinePixel> rasterize_line(Vec2f p0, Vec2f p1, float thickness = 1.0f);
@@ -91,6 +92,7 @@ int main()
 
         // Mat4x4f projection_camera_world = projection * camera * world;
         Mat4x4f camera_world = camera * world;
+        Mat3x3f camera_world_inv_trans = camera_world.truncated().inv().transposed();
 
         for (int f = 0; f < obj->model->nfaces(); f++)
         {
@@ -109,9 +111,14 @@ int main()
             Vec4f v1_camera = camera_world * Vec4f(v1, 1.0f);
             Vec4f v2_camera = camera_world * Vec4f(v2, 1.0f);
 
+            Vec3f n0_camera = (camera_world_inv_trans * n0).normalize();
+            Vec3f n1_camera = (camera_world_inv_trans * n1).normalize();
+            Vec3f n2_camera = (camera_world_inv_trans * n2).normalize();
+
             // Back facing triangle check
             // NOTE: might need to use some epsilon, but that will have its own problems
-            if (get_triangle_normal(v0_camera.xyz(), v1_camera.xyz(), v2_camera.xyz()) * Vec3f(0.0f, 0.0f, 1.0f) <= 0.0f)
+            Vec3f triangle_normal = get_triangle_normal(v0_camera.xyz(), v1_camera.xyz(), v2_camera.xyz()).normalize();
+            if (triangle_normal * Vec3f(0.0f, 0.0f, 1.0f) <= 0.0f)
             {
                 continue;
             }
@@ -149,19 +156,25 @@ int main()
                     {
                         float warp_normalizer = 1.0f / ((pixel.barycentric.x / std::abs(v0_device.z)) + (pixel.barycentric.y / std::abs(v1_device.z)) + (pixel.barycentric.z / std::abs(v2_device.z)));
                         interpolated_uv = clampedVec2f(((uv0 * (pixel.barycentric.x / std::abs(v0_device.z))) + (uv1 * (pixel.barycentric.y / std::abs(v1_device.z))) + (uv2 * (pixel.barycentric.z / std::abs(v2_device.z)))) * warp_normalizer, 0.0f, 1.0f);
-                        interpolated_normal = (((n0 * (pixel.barycentric.x / v0_device.z)) + (n1 * (pixel.barycentric.y / v1_device.z)) + (n2 * (pixel.barycentric.z / v2_device.z))) * warp_normalizer).normalize(); // might be able multiplication by warp_normalizer since already being normalized
+                        interpolated_normal = (((n0_camera * (pixel.barycentric.x / v0_device.z)) + (n1_camera * (pixel.barycentric.y / v1_device.z)) + (n2_camera * (pixel.barycentric.z / v2_device.z))) * warp_normalizer).normalize(); // might be able multiplication by warp_normalizer since already being normalized
                     }
                     else
                     {
                         interpolated_uv = clampedVec2f((uv0 * pixel.barycentric.x) + (uv1 * pixel.barycentric.y) + (uv2 * pixel.barycentric.z), 0.0f, 1.0f);
-                        interpolated_normal = ((n0 * pixel.barycentric.x) + (n1 * pixel.barycentric.y) + (n2 * pixel.barycentric.z)).normalize();
+                        interpolated_normal = ((n0_camera * pixel.barycentric.x) + (n1_camera * pixel.barycentric.y) + (n2_camera * pixel.barycentric.z)).normalize();
                     }
 
-                    Vec2i texture_pixel = Vec2i((obj->texture->get_width() - 1) * interpolated_uv.x, (obj->texture->get_height() - 1) * interpolated_uv.y);
-                    // Vec3f texture_color = to_vec3fcolor(obj->texture->get(texture_pixel.x, texture_pixel.y));
+                    Vec3f light_direction = Vec3f(0.0f, 0.0f, -1.0f); // temp
+                    float diffuse = clampedf(light_direction * interpolated_normal, 0.0f, 1.0f);
+                    float ambient = 0.00f;
 
-                    // image.set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(rnd_color));
-                    image.set(pixel.pixel.x, pixel.pixel.y, obj->texture->get(texture_pixel.x, texture_pixel.y));
+                    Vec2i texture_pixel = Vec2i((obj->texture->get_width() - 1) * interpolated_uv.x, (obj->texture->get_height() - 1) * interpolated_uv.y);
+                    Vec3f texture_color = to_vec3fcolor(obj->texture->get(texture_pixel.x, texture_pixel.y));
+
+                    Vec3f shaded_texture = clampedVec3f((texture_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f);
+
+                    image.set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_texture));
+                    // image.set(pixel.pixel.x, pixel.pixel.y, obj->texture->get(texture_pixel.x, texture_pixel.y));
                     z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
                 }
             }
@@ -174,6 +187,11 @@ int main()
     return 0;
 }
 
+
+Vec3f normal_colored(Vec3f normal)
+{
+    return Vec3f(std::abs(normal.x), std::abs(normal.y), std::abs(normal.z));
+}
 
 Vec3f to_vec3fcolor(TGAColor color)
 {
