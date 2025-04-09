@@ -98,6 +98,7 @@ template <class t> struct Vec4
 
 	// Methods
 
+	Vec3<t> xyz() const { return Vec3<t>(x, y, z); }
 	// float     length () const { return std::sqrt(x*x+y*y+z*z); }
 	// Vec3<t> & normalize(t l=1) { *this = (*this)*(l/length()); return *this; }
 
