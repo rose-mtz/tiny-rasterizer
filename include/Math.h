@@ -76,10 +76,42 @@ template <class t> struct Vec3
 };
 
 
+template <class t> struct Vec4 
+{
+	union 
+	{
+		struct { t x, y, z, w; };
+		t raw[4];
+	};
+
+	// Constructors
+
+	Vec4() : x(0), y(0), z(0), w(0) {}
+	Vec4(Vec3<t> v, t w) : x(v.x), y(v.y), z(v.z), w(w) {}
+	Vec4(t _x, t _y, t _z, t _w) : x(_x), y(_y), z(_z), w(_w) {}
+
+	// Operators
+
+	inline Vec4<t> operator +(const Vec4<t> &v) const { return Vec4<t>(x+v.x, y+v.y, z+v.z, w+v.w); }
+	inline Vec4<t> operator -(const Vec4<t> &v) const { return Vec4<t>(x-v.x, y-v.y, z-v.z, w-v.w); }
+	inline Vec4<t> operator *(float f)          const { return Vec4<t>(x*f, y*f, z*f, w*f); }
+
+	// Methods
+
+	// float     length () const { return std::sqrt(x*x+y*y+z*z); }
+	// Vec3<t> & normalize(t l=1) { *this = (*this)*(l/length()); return *this; }
+
+	// For debugging
+
+	// template <class > friend std::ostream& operator<<(std::ostream& s, Vec3<t>& v);
+};
+
+
 typedef Vec2<float> Vec2f;
 typedef Vec2<int>   Vec2i;
 typedef Vec3<float> Vec3f;
 typedef Vec3<int>   Vec3i;
+typedef Vec4<float> Vec4f;
 
 
 template <class t> std::ostream& operator<<(std::ostream& s, Vec2<t>& v) {
@@ -146,7 +178,65 @@ struct Mat3x3f
 };
 
 
+struct Mat4x4f
+{
+	Vec4f cols[4]; // this might have been bad idea
+
+	// Constructors
+
+    Mat4x4f() 
+	{
+		cols[0] = Vec4f(1.0f, 0.0f, 0.0f, 0.0f);
+		cols[1] = Vec4f(0.0f, 1.0f, 0.0f, 0.0f);
+		cols[2] = Vec4f(0.0f, 0.0f, 1.0f, 0.0f);
+		cols[3] = Vec4f(0.0f, 0.0f, 0.0f, 1.0f);
+	}
+    Mat4x4f(Vec4f x, Vec4f y, Vec4f z, Vec4f w, bool transpose = false)
+	{
+		if (!transpose)
+		{
+			cols[0] = x; cols[1] = y; cols[2] = z; cols[3] = w;
+		}
+		else
+		{
+			for (int i = 0; i < 4; i++)
+			{
+				cols[i].x = x.raw[i];
+				cols[i].y = y.raw[i];
+				cols[i].z = z.raw[i];
+				cols[i].w = w.raw[i];
+			}
+		}
+	}
+
+	// Operators
+
+	Vec4f operator*(Vec4f v)
+	{
+		return (cols[0] * v.x) + (cols[1] * v.y) + (cols[2] * v.z) + (cols[3] * v.w); 
+	}
+
+
+	Mat4x4f operator*(Mat4x4f m)
+	{
+		Mat4x4f prod;
+
+		for (int i = 0; i < 4; i++)
+		{
+			prod.cols[i] = (this->cols[0] * m.cols[i].x) + (this->cols[1] * m.cols[i].y) + (this->cols[2] * m.cols[i].z) + (this->cols[3] * m.cols[i].w);   
+		}
+
+		return prod;
+	}
+
+	// Methods
+};
+
+
 Vec3f get_triangle_normal(Vec3f a, Vec3f b, Vec3f c);
 float clampedf(float a, float min, float max);
 Vec3f clampedVec3f(Vec3f v, float min, float max);
 Vec2f clampedVec2f(Vec2f v, float min, float max);
+
+Mat4x4f get_transformation(Vec3f pos, float scale);
+Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up);

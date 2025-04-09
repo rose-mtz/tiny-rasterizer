@@ -1,0 +1,17 @@
+Camera
+    type perspective
+    position 0.0 0.0 2.0
+    lookAt 0.0 0.0 0.0
+    zoom 1
+
+Object3D
+    model ./obj/african_head.obj
+    texture ./obj/african_head_diffuse.tga
+    position 0.0 0.0 0.0
+    scale 1.0
+    gouraud true
+
+Light
+    type point
+    direction 0.0 0.0 -1.0
+    color 1.0 1.0 1.0
