@@ -148,22 +148,26 @@ int main()
             {
                 for (int l = 0; l < scene.lights.size(); l++)
                 {
-                    
-                    Vec3f dir_to_light_world = scene.lights[l]->direction * -1.0f; // world
-                    Vec3f dir_to_light_camera = (camera_inv_trans * dir_to_light_world).normalize(); // camera
-                    float diffuse_gouraud = clampedf(dir_to_light_camera * triangle_normal, 0.0f, 1.0f);
-
-                    if (scene.lights[l]->type == "point")
+                    float diffuse = 0.0f;
+                    if (scene.lights[l]->type == "directional")
+                    {
+                        Vec3f dir_to_light_world = scene.lights[l]->direction * -1.0f; // world space
+                        Vec3f dir_to_light_camera = (camera_inv_trans * dir_to_light_world).normalize(); // camera space
+                        diffuse = clampedf(dir_to_light_camera * triangle_normal, 0.0f, 1.0f);
+                    }
+                    else // point
                     {
                         Vec3f light_pos_world = scene.lights[l]->pos;
                         Vec3f light_pos_camera = (camera * Vec4f(light_pos_world, 1.0f)).xyz();
                         Vec3f triangle_center_camera = ((v0_camera + v1_camera + v2_camera) * (1.0f / 3.0f)).xyz(); // barycenter of triangle in camera space
-                        float r = (triangle_center_camera - light_pos_camera).length();
-                        diffuse_gouraud = diffuse_gouraud * (1.0f / (r * r + 0.01f)) * scene.lights[l]->intensity;
+                        Vec3f dir_to_light = (light_pos_camera - triangle_center_camera).normalize(); // Optimize: redundant calculation
+                        float r = (triangle_center_camera - light_pos_camera).length(); // Optimize: redundant calculation
+                        diffuse = clampedf(dir_to_light * triangle_normal, 0.0f, 1.0f); // lambertian shading
+                        diffuse = diffuse * (1.0f / (r * r + 0.01f)) * scene.lights[l]->intensity; // geometric attenuation (drop off)
                     }
 
-                    Vec3f color = scene.lights[l]->color; // light color
-                    light_flat = light_flat + Vec3f(color.x * diffuse_gouraud, color.y * diffuse_gouraud, color.z * diffuse_gouraud);
+                    Vec3f light_color = scene.lights[l]->color;
+                    light_flat = light_flat + Vec3f(light_color.x * diffuse, light_color.y * diffuse, light_color.z * diffuse);
                 }
                 light_flat = clampedVec3f(light_flat, 0.0f, 1.0f);
             }
@@ -177,25 +181,34 @@ int main()
             {
                 for (int l = 0; l < scene.lights.size(); l++)
                 {
-                    Vec3f dir_to_light_world = scene.lights[l]->direction * -1.0f; // world
-                    Vec3f dir_to_light_camera = (camera_inv_trans * dir_to_light_world).normalize(); // camera
+                    float diffuse_a = 0.0f;
+                    float diffuse_b = 0.0f;
+                    float diffuse_c = 0.0f;
+                    if (scene.lights[l]->type == "directional")
+                    {
+                        Vec3f dir_to_light_world = scene.lights[l]->direction * -1.0f; // world
+                        Vec3f dir_to_light_camera = (camera_inv_trans * dir_to_light_world).normalize(); // camera
 
-                    float diffuse_a = clampedf(dir_to_light_camera * n0_camera, 0.0f, 1.0f);
-                    float diffuse_b = clampedf(dir_to_light_camera * n1_camera, 0.0f, 1.0f);
-                    float diffuse_c = clampedf(dir_to_light_camera * n2_camera, 0.0f, 1.0f);
-
-                    if (scene.lights[l]->type == "point")
+                        diffuse_a = clampedf(dir_to_light_camera * n0_camera, 0.0f, 1.0f);
+                        diffuse_b = clampedf(dir_to_light_camera * n1_camera, 0.0f, 1.0f);
+                        diffuse_c = clampedf(dir_to_light_camera * n2_camera, 0.0f, 1.0f);
+                    }
+                    else // point
                     {
                         Vec3f light_pos_world = scene.lights[l]->pos;
                         Vec3f light_pos_camera = (camera * Vec4f(light_pos_world, 1.0f)).xyz();
+                        
+                        // Optimize: redundant calculations
+                        Vec3f dir_to_light_a = (light_pos_camera - v0_camera.xyz()).normalize();
+                        Vec3f dir_to_light_b = (light_pos_camera - v1_camera.xyz()).normalize();
+                        Vec3f dir_to_light_c = (light_pos_camera - v2_camera.xyz()).normalize();
+                        float r_a = (light_pos_camera - v0_camera.xyz()).length();
+                        float r_b = (light_pos_camera - v1_camera.xyz()).length();
+                        float r_c = (light_pos_camera - v2_camera.xyz()).length();
 
-                        float r_a = (v0_camera.xyz() - light_pos_camera).length();
-                        float r_b = (v1_camera.xyz() - light_pos_camera).length();
-                        float r_c = (v2_camera.xyz() - light_pos_camera).length();
-
-                        diffuse_a = diffuse_a * (1.0f / (r_a * r_a + 0.01f)) * scene.lights[l]->intensity;
-                        diffuse_b = diffuse_b * (1.0f / (r_b * r_b + 0.01f)) * scene.lights[l]->intensity;
-                        diffuse_c = diffuse_c * (1.0f / (r_c * r_c + 0.01f)) * scene.lights[l]->intensity;
+                        diffuse_a = clampedf(dir_to_light_a * n0_camera, 0.0f, 1.0f) * (1.0f / (r_a * r_a + 0.01f)) * scene.lights[l]->intensity;
+                        diffuse_b = clampedf(dir_to_light_b * n1_camera, 0.0f, 1.0f) * (1.0f / (r_b * r_b + 0.01f)) * scene.lights[l]->intensity;
+                        diffuse_c = clampedf(dir_to_light_c * n2_camera, 0.0f, 1.0f) * (1.0f / (r_c * r_c + 0.01f)) * scene.lights[l]->intensity;
                     }
 
                     Vec3f light_color = scene.lights[l]->color;
@@ -230,22 +243,28 @@ int main()
                     {
                         for (int l = 0; l < scene.lights.size(); l++)
                         {
-                            Vec3f dir_to_light_world = scene.lights[l]->direction * -1.0f; // world
-                            Vec3f dir_to_light_camera = (camera_inv_trans * dir_to_light_world).normalize(); // camera
-                            float diffuse = clampedf(dir_to_light_camera * interpolated_normal, 0.0f, 1.0f);
-
-                            if (scene.lights[l]->type == "point")
+                            float diffuse = 0.0f;
+                            if (scene.lights[l]->type == "directional")
                             {
+                                Vec3f dir_to_light_world = scene.lights[l]->direction * -1.0f; // world
+                                Vec3f dir_to_light_camera = (camera_inv_trans * dir_to_light_world).normalize(); // camera
+                                diffuse = clampedf(dir_to_light_camera * interpolated_normal, 0.0f, 1.0f);
+                            }
+                            else // point
+                            {
+                                // NOTE: will be slightly wrong for perspective cameras due perspective projection not being a affine transformation
+                                //       and not correct for its projective warping
+
                                 Vec3f light_pos_world = scene.lights[l]->pos;
                                 Vec3f light_pos_camera = (camera * Vec4f(light_pos_world, 1.0f)).xyz();
-                                // NOTE: will be slightly (hopefully) wrong for perspective cameras due perspective projection not being a affine transformation
-                                Vec3f point_on_triangle_camera = ((v0_camera * pixel.barycentric.x) + (v1_camera * pixel.barycentric.y) + (v2_camera * pixel.barycentric.z)).xyz();
-                                float r = (point_on_triangle_camera - light_pos_camera).length();
-                                diffuse = diffuse * (1.0f / (r * r + 0.01f)) * scene.lights[l]->intensity;
+                                Vec3f interpolated_point_camera = ((v0_camera * pixel.barycentric.x) + (v1_camera * pixel.barycentric.y) + (v2_camera * pixel.barycentric.z)).xyz(); // this part is the wrong part
+                                Vec3f dir_to_light = (light_pos_camera - interpolated_point_camera).normalize(); // Optimize: redundant calculation
+                                float r = (light_pos_camera - interpolated_point_camera).length(); // Optimize: redundant calculation
+                                diffuse = clampedf(dir_to_light * interpolated_normal, 0.0f, 1.0f) * (1.0f / (r * r + 0.01f)) * scene.lights[l]->intensity;
                             }
 
-                            Vec3f color = scene.lights[l]->color; // light color
-                            light_per_pixel = light_per_pixel + Vec3f(color.x * diffuse, color.y * diffuse, color.z * diffuse);
+                            Vec3f light_color = scene.lights[l]->color;
+                            light_per_pixel = light_per_pixel + Vec3f(light_color.x * diffuse, light_color.y * diffuse, light_color.z * diffuse);
                         }
                         light_per_pixel = clampedVec3f(light_per_pixel, 0.0f, 1.0f);
                     }

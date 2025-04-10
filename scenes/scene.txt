@@ -1,26 +1,19 @@
 Camera
     type perspective
-    position -1.0 0.0 2.0
+    position -4.0 0.0 1.5
     lookAt 0.0 0.0 0.0
-    zoom 1
+    zoom 2
 
 Object3D
     model ./obj/african_head.obj
     texture ./obj/african_head_diffuse.tga
     position 0.0 0.0 0.0
     scale 1.0
-    shading flat
+    shading per-pixel
 
 Light
     type point
     direction 1.0 0.0 -1.0
     color 1.0 1.0 1.0
-    position -2.0.0 0.0
-    intensity 20.0
-
-Light
-    type point
-    direction -1.0 0.0 0.0
-    color 1.0 1.0 1.0
-    position 5.0 0.0 0.0
-    intensity 10.0
+    position 0.0 0.0 8.0
+    intensity 45.0
