@@ -143,27 +143,31 @@ int main()
 
 
             Vec3f total_light (0.0f); // total light shining on triangle
-            for (int l = 0; l < scene.lights.size(); l++)
+
+            // Flat shading
+            if (obj->gouraud_shading)
             {
-                // Gouraud shading
-                
-                Vec3f dir_to_light_world = scene.lights[l]->direction * -1.0f; // world
-                Vec3f dir_to_light_camera = camera_inv_trans * dir_to_light_world; // camera
-                Vec3f color = scene.lights[l]->color; // light color
-                float diffuse_gouraud = clampedf(dir_to_light_camera * triangle_normal, 0.0f, 1.0f);
-
-                if (scene.lights[l]->type == "point")
+                for (int l = 0; l < scene.lights.size(); l++)
                 {
-                    Vec3f light_pos_world = scene.lights[l]->pos;
-                    Vec3f light_pos_camera = (camera * Vec4f(light_pos_world, 1.0f)).xyz();
-                    Vec3f triangle_center_camera = ((v0_camera + v1_camera + v2_camera) * (1.0f / 3.0f)).xyz(); // barycenter of triangle in camera space
-                    float r = (triangle_center_camera - light_pos_camera).length();
-                    diffuse_gouraud = diffuse_gouraud * (1.0f / (r * r + 0.01f)) * scene.lights[l]->intensity;
-                }
+                    
+                    Vec3f dir_to_light_world = scene.lights[l]->direction * -1.0f; // world
+                    Vec3f dir_to_light_camera = (camera_inv_trans * dir_to_light_world).normalize(); // camera
+                    float diffuse_gouraud = clampedf(dir_to_light_camera * triangle_normal, 0.0f, 1.0f);
 
-                total_light = total_light + Vec3f(color.x * diffuse_gouraud, color.y * diffuse_gouraud, color.z * diffuse_gouraud);
+                    if (scene.lights[l]->type == "point")
+                    {
+                        Vec3f light_pos_world = scene.lights[l]->pos;
+                        Vec3f light_pos_camera = (camera * Vec4f(light_pos_world, 1.0f)).xyz();
+                        Vec3f triangle_center_camera = ((v0_camera + v1_camera + v2_camera) * (1.0f / 3.0f)).xyz(); // barycenter of triangle in camera space
+                        float r = (triangle_center_camera - light_pos_camera).length();
+                        diffuse_gouraud = diffuse_gouraud * (1.0f / (r * r + 0.01f)) * scene.lights[l]->intensity;
+                    }
+
+                    Vec3f color = scene.lights[l]->color; // light color
+                    total_light = total_light + Vec3f(color.x * diffuse_gouraud, color.y * diffuse_gouraud, color.z * diffuse_gouraud);
+                }
+                total_light = clampedVec3f(total_light, 0.0f, 1.0f);
             }
-            Vec3f total_light_clamped = clampedVec3f(total_light, 0.0f, 1.0f);
 
 
             std::vector<TrianglePixel> raster_triangle = rasterize_triangle(Vec2f(v0_device.x, v0_device.y), Vec2f(v1_device.x, v1_device.y), Vec2f(v2_device.x, v2_device.y));
@@ -176,31 +180,47 @@ int main()
                 {
                     Vec2f interpolated_uv;
                     Vec3f interpolated_normal;
-                    if (scene.camera->type == "perspective")
-                    {
-                        float warp_normalizer = 1.0f / ((pixel.barycentric.x / std::abs(v0_device.z)) + (pixel.barycentric.y / std::abs(v1_device.z)) + (pixel.barycentric.z / std::abs(v2_device.z)));
-                        interpolated_uv = clampedVec2f(((uv0 * (pixel.barycentric.x / std::abs(v0_device.z))) + (uv1 * (pixel.barycentric.y / std::abs(v1_device.z))) + (uv2 * (pixel.barycentric.z / std::abs(v2_device.z)))) * warp_normalizer, 0.0f, 1.0f);
-                        interpolated_normal = (((n0_camera * (pixel.barycentric.x / v0_device.z)) + (n1_camera * (pixel.barycentric.y / v1_device.z)) + (n2_camera * (pixel.barycentric.z / v2_device.z))) * warp_normalizer).normalize(); // might be able multiplication by warp_normalizer since already being normalized
-                    }
-                    else
-                    {
-                        interpolated_uv = clampedVec2f((uv0 * pixel.barycentric.x) + (uv1 * pixel.barycentric.y) + (uv2 * pixel.barycentric.z), 0.0f, 1.0f);
-                        interpolated_normal = ((n0_camera * pixel.barycentric.x) + (n1_camera * pixel.barycentric.y) + (n2_camera * pixel.barycentric.z)).normalize();
-                    }
 
-                    // Vec3f light_direction = Vec3f(0.0f, 0.0f, -1.0f); // temp
-                    // float diffuse = clampedf(light_direction * interpolated_normal, 0.0f, 1.0f);
-                    // float ambient = 0.00f;
-                    // Vec3f shaded_texture = clampedVec3f((texture_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f);
+                    interpolated_uv = clampedVec2f((uv0 * pixel.barycentric.x) + (uv1 * pixel.barycentric.y) + (uv2 * pixel.barycentric.z), 0.0f, 1.0f);
+                    interpolated_normal = ((n0_camera * pixel.barycentric.x) + (n1_camera * pixel.barycentric.y) + (n2_camera * pixel.barycentric.z)).normalize();
+
+                    // Per-pixel shading
+                    if (!obj->gouraud_shading)
+                    {
+                        for (int l = 0; l < scene.lights.size(); l++)
+                        {
+                            Vec3f dir_to_light_world = scene.lights[l]->direction * -1.0f; // world
+                            Vec3f dir_to_light_camera = (camera_inv_trans * dir_to_light_world).normalize(); // camera
+                            float diffuse = clampedf(dir_to_light_camera * interpolated_normal, 0.0f, 1.0f);
+
+                            if (scene.lights[l]->type == "point")
+                            {
+                                Vec3f light_pos_world = scene.lights[l]->pos;
+                                Vec3f light_pos_camera = (camera * Vec4f(light_pos_world, 1.0f)).xyz();
+                                // NOTE: will be slightly (hopefully) wrong for perspective cameras due perspective projection not being a affine transformation
+                                Vec3f point_on_triangle_camera = ((v0_camera * pixel.barycentric.x) + (v1_camera * pixel.barycentric.y) + (v2_camera * pixel.barycentric.z)).xyz();
+                                float r = (point_on_triangle_camera - light_pos_camera).length();
+                                diffuse = diffuse * (1.0f / (r * r + 0.01f)) * scene.lights[l]->intensity;
+                            }
+
+                            Vec3f color = scene.lights[l]->color; // light color
+                            total_light = total_light + Vec3f(color.x * diffuse, color.y * diffuse, color.z * diffuse);
+                        }
+                        total_light = clampedVec3f(total_light, 0.0f, 1.0f);
+                    }
 
                     Vec2i texture_pixel = Vec2i((obj->texture->get_width() - 1) * interpolated_uv.x, (obj->texture->get_height() - 1) * interpolated_uv.y);
                     Vec3f texture_color = to_vec3fcolor(obj->texture->get(texture_pixel.x, texture_pixel.y));
 
-                    Vec3f gouraud_shaded_texture = Vec3f(texture_color.x * total_light_clamped.x, texture_color.y * total_light_clamped.y, texture_color.z * total_light_clamped.z);
+                    Vec3f gouraud_shaded_texture = Vec3f(texture_color.x * total_light.x, texture_color.y * total_light.y, texture_color.z * total_light.z);
 
                     image.set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(gouraud_shaded_texture));
                     z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
-                    // image.set(pixel.pixel.x, pixel.pixel.y, obj->texture->get(texture_pixel.x, texture_pixel.y));
+
+                    if (!obj->gouraud_shading)
+                    {
+                        total_light = Vec3f(0.0f);
+                    }
                 }
             }
         }
