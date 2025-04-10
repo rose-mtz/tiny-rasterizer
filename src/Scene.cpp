@@ -6,6 +6,11 @@
 #include "Scene.h"
 
 
+std::vector<Model*> models;
+std::vector<TGAImage*> textures;
+std::vector<Material*> materials;
+
+
 Vec3f parse_vec3f(std::istringstream& iss)
 {
     Vec3f v;
@@ -23,11 +28,87 @@ bool parse_bool(std::istringstream& iss)
 }
 
 
+Material* parse_material(std::ifstream& in)
+{
+    float k_d = 1.0f;
+    float k_s = 1.0f;
+    float k_a = 1.0f;
+    int shininess = 10;
+
+    std::string line; std::getline(in, line);
+    while (line.size() != 0) // blank line indicates end of attributes
+    {
+        std::istringstream iss(line.c_str());
+        std::string attribute; iss >> attribute;
+
+        if (attribute == "k_d")
+        {
+            assert(iss >> k_d);
+        }
+        else if (attribute == "k_s")
+        {
+            assert(iss >> k_s);   
+        }
+        else if (attribute == "k_a")
+        {
+            assert(iss >> k_a);
+        }
+        else if (attribute == "shininess")
+        {
+            assert(iss >> shininess);
+        }
+
+        if (in.eof()) // was last line of file
+        {
+            break;
+        }
+        std::getline(in, line); // get next line
+    }
+
+    Material* mat = new Material();
+    mat->k_d = k_d;
+    mat->k_s = k_s;
+    mat->k_a = k_a;
+    mat->shininess = shininess;
+
+    return mat;
+}
+
+
+Model* parse_model(std::ifstream& in)
+{
+    std::string line; std::getline(in, line);
+    std::istringstream iss(line.c_str());
+    std::string attribute; assert(iss >> attribute);
+    std::string filename; assert(iss >> filename);
+
+    Model* model = new Model(filename.c_str());
+
+    return model;
+}
+
+
+TGAImage* parse_texture(std::ifstream& in)
+{
+    std::string line; std::getline(in, line);
+    std::istringstream iss(line.c_str());
+    std::string attribute; assert(iss >> attribute);
+    std::string filename; assert(iss >> filename);
+
+    TGAImage* texture = new TGAImage();
+    texture->read_tga_file(filename.c_str());
+    texture->flip_vertically(); // can later allow user to specify if they want it flipped in txt file
+
+    return texture;
+}
+
+
 Object3D* parse_object3d(std::ifstream& in)
 {
     // Default arguments
     Model* model = nullptr;
     TGAImage* texture = nullptr;
+    Material* mat = nullptr;
     Vec3f position = Vec3f(0.0f, 0.0f, 0.0f);
     float scale = 1.0f;
     std::string shading = "flat";
@@ -40,15 +121,21 @@ Object3D* parse_object3d(std::ifstream& in)
 
         if (attribute == "model")
         {
-            std::string filename; iss >> filename;
-            model = new Model(filename.c_str());
+            int index; assert(iss >> index);
+            assert(models.size() > index);
+            model = models[index];
         }
         else if (attribute == "texture")
         {
-            std::string filename; iss >> filename;
-            texture = new TGAImage();
-            texture->read_tga_file(filename.c_str());
-            texture->flip_vertically();
+            int index; assert(iss >> index);
+            assert(textures.size() > index);
+            texture = textures[index];
+        }
+        else if (attribute == "material")
+        {
+            int index; assert(iss >> index);
+            assert(materials.size() > index);
+            mat = materials[index];
         }
         else if (attribute == "position")
         {
@@ -79,6 +166,7 @@ Object3D* parse_object3d(std::ifstream& in)
     Object3D* obj = new Object3D();
     obj->model = model;
     obj->texture = texture;
+    obj->mat = mat;
     obj->shading = shading;
     obj->pos = position;
     obj->scale = scale;
@@ -214,7 +302,19 @@ Scene::Scene(const char* filename)
         std::istringstream iss(line.c_str());
 
         std::string type; iss >> type;
-        if (type == "Camera")
+        if (type == "Model")
+        {
+            models.push_back(parse_model(in));
+        }
+        else if (type == "Texture")
+        {
+            textures.push_back(parse_texture(in));
+        }
+        else if (type == "Material")
+        {
+            materials.push_back(parse_material(in));
+        }
+        else if (type == "Camera")
         {
             this->camera = parse_camera(in);
         }

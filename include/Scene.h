@@ -14,10 +14,20 @@
  */
 
 
+struct Material 
+{
+    float k_d; // diffuse
+    float k_s; // specular
+    float k_a; // ambient
+    float shininess; // q
+};
+
+
 struct Object3D
 {
     Model* model;
     TGAImage* texture;
+    Material* mat;
     std::string shading;
     Vec3f pos;
     float scale;
