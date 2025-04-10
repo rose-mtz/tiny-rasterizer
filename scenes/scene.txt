@@ -9,13 +9,13 @@ Object3D
     texture ./obj/african_head_diffuse.tga
     position 0.0 0.0 0.0
     scale 1.0
-    gouraud true
+    shading flat
 
 Light
     type point
-    direction 1.0 0.0 0.0
+    direction 1.0 0.0 -1.0
     color 1.0 1.0 1.0
-    position -5.0 0.0 0.0
+    position -2.0.0 0.0
     intensity 20.0
 
 Light

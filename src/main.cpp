@@ -136,16 +136,15 @@ int main()
             Vec3f v1_device = device * Vec3f(v1_virtual.x, v1_virtual.y, 1.0f); v1_device.z = v1_virtual.z;
             Vec3f v2_device = device * Vec3f(v2_virtual.x, v2_virtual.y, 1.0f); v2_device.z = v2_virtual.z;
 
-            Vec3f rnd_color;
-            rnd_color.x = (std::rand() % 101) / 100.0f;
-            rnd_color.y = (std::rand() % 101) / 100.0f;
-            rnd_color.z = (std::rand() % 101) / 100.0f;
-
-
-            Vec3f total_light (0.0f); // total light shining on triangle
+            // Vec3f rnd_color;
+            // rnd_color.x = (std::rand() % 101) / 100.0f;
+            // rnd_color.y = (std::rand() % 101) / 100.0f;
+            // rnd_color.z = (std::rand() % 101) / 100.0f;
 
             // Flat shading
-            if (obj->gouraud_shading)
+
+            Vec3f light_flat (0.0f);
+            if (obj->shading == "flat")
             {
                 for (int l = 0; l < scene.lights.size(); l++)
                 {
@@ -164,9 +163,50 @@ int main()
                     }
 
                     Vec3f color = scene.lights[l]->color; // light color
-                    total_light = total_light + Vec3f(color.x * diffuse_gouraud, color.y * diffuse_gouraud, color.z * diffuse_gouraud);
+                    light_flat = light_flat + Vec3f(color.x * diffuse_gouraud, color.y * diffuse_gouraud, color.z * diffuse_gouraud);
                 }
-                total_light = clampedVec3f(total_light, 0.0f, 1.0f);
+                light_flat = clampedVec3f(light_flat, 0.0f, 1.0f);
+            }
+
+            // Gouraud shading
+
+            Vec3f light_gouraud_a (0.0f);
+            Vec3f light_gouraud_b (0.0f);
+            Vec3f light_gouraud_c (0.0f);
+            if (obj->shading == "gouraud")
+            {
+                for (int l = 0; l < scene.lights.size(); l++)
+                {
+                    Vec3f dir_to_light_world = scene.lights[l]->direction * -1.0f; // world
+                    Vec3f dir_to_light_camera = (camera_inv_trans * dir_to_light_world).normalize(); // camera
+
+                    float diffuse_a = clampedf(dir_to_light_camera * n0_camera, 0.0f, 1.0f);
+                    float diffuse_b = clampedf(dir_to_light_camera * n1_camera, 0.0f, 1.0f);
+                    float diffuse_c = clampedf(dir_to_light_camera * n2_camera, 0.0f, 1.0f);
+
+                    if (scene.lights[l]->type == "point")
+                    {
+                        Vec3f light_pos_world = scene.lights[l]->pos;
+                        Vec3f light_pos_camera = (camera * Vec4f(light_pos_world, 1.0f)).xyz();
+
+                        float r_a = (v0_camera.xyz() - light_pos_camera).length();
+                        float r_b = (v1_camera.xyz() - light_pos_camera).length();
+                        float r_c = (v2_camera.xyz() - light_pos_camera).length();
+
+                        diffuse_a = diffuse_a * (1.0f / (r_a * r_a + 0.01f)) * scene.lights[l]->intensity;
+                        diffuse_b = diffuse_b * (1.0f / (r_b * r_b + 0.01f)) * scene.lights[l]->intensity;
+                        diffuse_c = diffuse_c * (1.0f / (r_c * r_c + 0.01f)) * scene.lights[l]->intensity;
+                    }
+
+                    Vec3f light_color = scene.lights[l]->color;
+                    light_gouraud_a = light_gouraud_a + Vec3f(light_color.x * diffuse_a, light_color.y * diffuse_a, light_color.z * diffuse_a); 
+                    light_gouraud_b = light_gouraud_b + Vec3f(light_color.x * diffuse_b, light_color.y * diffuse_b, light_color.z * diffuse_b);
+                    light_gouraud_c = light_gouraud_c + Vec3f(light_color.x * diffuse_c, light_color.y * diffuse_c, light_color.z * diffuse_c);
+                }
+
+                light_gouraud_a = clampedVec3f(light_gouraud_a, 0.0f, 1.0f);
+                light_gouraud_b = clampedVec3f(light_gouraud_b, 0.0f, 1.0f);
+                light_gouraud_c = clampedVec3f(light_gouraud_c, 0.0f, 1.0f);
             }
 
 
@@ -180,12 +220,13 @@ int main()
                 {
                     Vec2f interpolated_uv;
                     Vec3f interpolated_normal;
-
                     interpolated_uv = clampedVec2f((uv0 * pixel.barycentric.x) + (uv1 * pixel.barycentric.y) + (uv2 * pixel.barycentric.z), 0.0f, 1.0f);
                     interpolated_normal = ((n0_camera * pixel.barycentric.x) + (n1_camera * pixel.barycentric.y) + (n2_camera * pixel.barycentric.z)).normalize();
 
                     // Per-pixel shading
-                    if (!obj->gouraud_shading)
+
+                    Vec3f light_per_pixel (0.0f);
+                    if (obj->shading == "per-pixel")
                     {
                         for (int l = 0; l < scene.lights.size(); l++)
                         {
@@ -204,23 +245,32 @@ int main()
                             }
 
                             Vec3f color = scene.lights[l]->color; // light color
-                            total_light = total_light + Vec3f(color.x * diffuse, color.y * diffuse, color.z * diffuse);
+                            light_per_pixel = light_per_pixel + Vec3f(color.x * diffuse, color.y * diffuse, color.z * diffuse);
                         }
-                        total_light = clampedVec3f(total_light, 0.0f, 1.0f);
+                        light_per_pixel = clampedVec3f(light_per_pixel, 0.0f, 1.0f);
                     }
 
                     Vec2i texture_pixel = Vec2i((obj->texture->get_width() - 1) * interpolated_uv.x, (obj->texture->get_height() - 1) * interpolated_uv.y);
                     Vec3f texture_color = to_vec3fcolor(obj->texture->get(texture_pixel.x, texture_pixel.y));
 
-                    Vec3f gouraud_shaded_texture = Vec3f(texture_color.x * total_light.x, texture_color.y * total_light.y, texture_color.z * total_light.z);
-
-                    image.set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(gouraud_shaded_texture));
-                    z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
-
-                    if (!obj->gouraud_shading)
+                    Vec3f shaded_texture;
+                    if (obj->shading == "flat")
                     {
-                        total_light = Vec3f(0.0f);
+                        shaded_texture = Vec3f(texture_color.x * light_flat.x, texture_color.y * light_flat.y, texture_color.z * light_flat.z);
                     }
+                    else if (obj->shading == "gouraud")
+                    {
+                        Vec3f interpolated_light = (light_gouraud_a * pixel.barycentric.x) + (light_gouraud_b * pixel.barycentric.y) + (light_gouraud_c * pixel.barycentric.z);
+                        interpolated_light = clampedVec3f(interpolated_light, 0.0f, 1.0f); // just to make sure its [0,1]
+                        shaded_texture = Vec3f(texture_color.x * interpolated_light.x, texture_color.y * interpolated_light.y, texture_color.z * interpolated_light.z);
+                    }
+                    else // per-pixel
+                    {
+                        shaded_texture = Vec3f(texture_color.x * light_per_pixel.x, texture_color.y * light_per_pixel.y, texture_color.z * light_per_pixel.z);
+                    }
+
+                    image.set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_texture));
+                    z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
                 }
             }
         }

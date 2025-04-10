@@ -30,7 +30,7 @@ Object3D* parse_object3d(std::ifstream& in)
     TGAImage* texture = nullptr;
     Vec3f position = Vec3f(0.0f, 0.0f, 0.0f);
     float scale = 1.0f;
-    bool gouraud = true;
+    std::string shading = "flat";
 
     std::string line; std::getline(in, line);
     while (line.size() != 0) // blank line indicates end of attributes
@@ -58,9 +58,10 @@ Object3D* parse_object3d(std::ifstream& in)
         {
             assert(iss >> scale);   
         }
-        else if (attribute == "gouraud")
+        else if (attribute == "shading")
         {
-            gouraud = parse_bool(iss);
+            assert(iss >> shading);
+            assert(shading == "flat" || shading == "gouraud" || shading == "per-pixel");
         }
         else
         {
@@ -78,7 +79,7 @@ Object3D* parse_object3d(std::ifstream& in)
     Object3D* obj = new Object3D();
     obj->model = model;
     obj->texture = texture;
-    obj->gouraud_shading = gouraud;
+    obj->shading = shading;
     obj->pos = position;
     obj->scale = scale;
 
@@ -101,7 +102,8 @@ Camera* parse_camera(std::ifstream& in)
 
         if (attribute == "type")
         {
-            iss >> type;
+            assert(iss >> type);
+            assert(type == "perspective" || type == "orthographic");
         }
         else if (attribute == "position")
         {
@@ -154,7 +156,8 @@ Light* parse_light(std::ifstream& in)
 
         if (attribute == "type")
         {
-            iss >> type;
+            assert(iss >> type);
+            assert(type == "directional" || type == "point");
         }
         else if (attribute == "position")
         {

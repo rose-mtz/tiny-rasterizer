@@ -18,7 +18,7 @@ struct Object3D
 {
     Model* model;
     TGAImage* texture;
-    bool gouraud_shading;
+    std::string shading;
     Vec3f pos;
     float scale;
 };
@@ -36,8 +36,10 @@ struct Camera
 struct Light
 {
     std::string type; // refactor out later
-    Vec3f direction;
     Vec3f color;
+
+    // Only for directional lights
+    Vec3f direction;
 
     // Only for point lights
     Vec3f pos;
@@ -47,7 +49,6 @@ struct Light
 
 class Scene
 {
-// private:
 public:
     std::vector<Light*> lights;
     std::vector<Object3D*> objects;
