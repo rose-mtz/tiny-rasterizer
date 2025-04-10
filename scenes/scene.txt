@@ -9,7 +9,7 @@ Object3D
     texture ./obj/african_head_diffuse.tga
     position 0.0 0.0 0.0
     scale 1.0
-    shading per-pixel
+    shading phong
 
 Light
     type point

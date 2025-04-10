@@ -236,10 +236,10 @@ int main()
                     interpolated_uv = clampedVec2f((uv0 * pixel.barycentric.x) + (uv1 * pixel.barycentric.y) + (uv2 * pixel.barycentric.z), 0.0f, 1.0f);
                     interpolated_normal = ((n0_camera * pixel.barycentric.x) + (n1_camera * pixel.barycentric.y) + (n2_camera * pixel.barycentric.z)).normalize();
 
-                    // Per-pixel shading
+                    // Phong shading
 
                     Vec3f light_per_pixel (0.0f);
-                    if (obj->shading == "per-pixel")
+                    if (obj->shading == "phong")
                     {
                         for (int l = 0; l < scene.lights.size(); l++)
                         {
@@ -283,7 +283,7 @@ int main()
                         interpolated_light = clampedVec3f(interpolated_light, 0.0f, 1.0f); // just to make sure its [0,1]
                         shaded_texture = Vec3f(texture_color.x * interpolated_light.x, texture_color.y * interpolated_light.y, texture_color.z * interpolated_light.z);
                     }
-                    else // per-pixel
+                    else // phong
                     {
                         shaded_texture = Vec3f(texture_color.x * light_per_pixel.x, texture_color.y * light_per_pixel.y, texture_color.z * light_per_pixel.z);
                     }
