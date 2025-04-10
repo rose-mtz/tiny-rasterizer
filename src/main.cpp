@@ -90,9 +90,9 @@ int main()
         // World
         Mat4x4f world = get_transformation(obj->pos, obj->scale);
 
-        // Mat4x4f projection_camera_world = projection * camera * world;
         Mat4x4f camera_world = camera * world;
         Mat3x3f camera_world_inv_trans = camera_world.truncated().inv().transposed();
+        Mat3x3f camera_inv_trans = camera.truncated().inv().transposed();
 
         for (int f = 0; f < obj->model->nfaces(); f++)
         {
@@ -142,6 +142,30 @@ int main()
             rnd_color.z = (std::rand() % 101) / 100.0f;
 
 
+            Vec3f total_light (0.0f); // total light shining on triangle
+            for (int l = 0; l < scene.lights.size(); l++)
+            {
+                // Gouraud shading
+                
+                Vec3f dir_to_light_world = scene.lights[l]->direction * -1.0f; // world
+                Vec3f dir_to_light_camera = camera_inv_trans * dir_to_light_world; // camera
+                Vec3f color = scene.lights[l]->color; // light color
+                float diffuse_gouraud = clampedf(dir_to_light_camera * triangle_normal, 0.0f, 1.0f);
+
+                if (scene.lights[l]->type == "point")
+                {
+                    Vec3f light_pos_world = scene.lights[l]->pos;
+                    Vec3f light_pos_camera = (camera * Vec4f(light_pos_world, 1.0f)).xyz();
+                    Vec3f triangle_center_camera = ((v0_camera + v1_camera + v2_camera) * (1.0f / 3.0f)).xyz(); // barycenter of triangle in camera space
+                    float r = (triangle_center_camera - light_pos_camera).length();
+                    diffuse_gouraud = diffuse_gouraud * (1.0f / (r * r + 0.01f)) * scene.lights[l]->intensity;
+                }
+
+                total_light = total_light + Vec3f(color.x * diffuse_gouraud, color.y * diffuse_gouraud, color.z * diffuse_gouraud);
+            }
+            Vec3f total_light_clamped = clampedVec3f(total_light, 0.0f, 1.0f);
+
+
             std::vector<TrianglePixel> raster_triangle = rasterize_triangle(Vec2f(v0_device.x, v0_device.y), Vec2f(v1_device.x, v1_device.y), Vec2f(v2_device.x, v2_device.y));
             for (int i = 0; i < raster_triangle.size(); i++)
             {
@@ -164,18 +188,19 @@ int main()
                         interpolated_normal = ((n0_camera * pixel.barycentric.x) + (n1_camera * pixel.barycentric.y) + (n2_camera * pixel.barycentric.z)).normalize();
                     }
 
-                    Vec3f light_direction = Vec3f(0.0f, 0.0f, -1.0f); // temp
-                    float diffuse = clampedf(light_direction * interpolated_normal, 0.0f, 1.0f);
-                    float ambient = 0.00f;
+                    // Vec3f light_direction = Vec3f(0.0f, 0.0f, -1.0f); // temp
+                    // float diffuse = clampedf(light_direction * interpolated_normal, 0.0f, 1.0f);
+                    // float ambient = 0.00f;
+                    // Vec3f shaded_texture = clampedVec3f((texture_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f);
 
                     Vec2i texture_pixel = Vec2i((obj->texture->get_width() - 1) * interpolated_uv.x, (obj->texture->get_height() - 1) * interpolated_uv.y);
                     Vec3f texture_color = to_vec3fcolor(obj->texture->get(texture_pixel.x, texture_pixel.y));
 
-                    Vec3f shaded_texture = clampedVec3f((texture_color * diffuse) + Vec3f(ambient), 0.0f, 1.0f);
+                    Vec3f gouraud_shaded_texture = Vec3f(texture_color.x * total_light_clamped.x, texture_color.y * total_light_clamped.y, texture_color.z * total_light_clamped.z);
 
-                    image.set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_texture));
-                    // image.set(pixel.pixel.x, pixel.pixel.y, obj->texture->get(texture_pixel.x, texture_pixel.y));
+                    image.set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(gouraud_shaded_texture));
                     z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
+                    // image.set(pixel.pixel.x, pixel.pixel.y, obj->texture->get(texture_pixel.x, texture_pixel.y));
                 }
             }
         }

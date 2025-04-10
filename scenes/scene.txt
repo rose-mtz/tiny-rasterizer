@@ -1,6 +1,6 @@
 Camera
     type perspective
-    position 1.0 0.0 2.0
+    position -1.0 0.0 2.0
     lookAt 0.0 0.0 0.0
     zoom 1
 
@@ -13,5 +13,14 @@ Object3D
 
 Light
     type point
-    direction 0.0 0.0 -1.0
+    direction 1.0 0.0 0.0
     color 1.0 1.0 1.0
+    position -5.0 0.0 0.0
+    intensity 20.0
+
+Light
+    type point
+    direction -1.0 0.0 0.0
+    color 1.0 1.0 1.0
+    position 5.0 0.0 0.0
+    intensity 20.0

@@ -144,6 +144,7 @@ Light* parse_light(std::ifstream& in)
     Vec3f direction = Vec3f(0.0f, 0.0f, -1.0f);
     Vec3f color = Vec3f(1.0f, 1.0f, 1.0f);
     Vec3f pos = Vec3f(10.0f, 10.0f, 10.0f);
+    float intensity = 1.0f;
 
     std::string line; std::getline(in, line);
     while (line.size() != 0) // blank line indicates end of attributes
@@ -161,11 +162,15 @@ Light* parse_light(std::ifstream& in)
         }
         else if (attribute == "direction")
         {
-            direction = parse_vec3f(iss);
+            direction = parse_vec3f(iss).normalize();
         }
         else if (attribute == "color")
         {
             color = parse_vec3f(iss);
+        }
+        else if (attribute == "intensity")
+        {
+            assert(iss >> intensity);
         }
         else
         {
@@ -185,6 +190,7 @@ Light* parse_light(std::ifstream& in)
     light->direction = direction;
     light->color = color;
     light->pos = pos;
+    light->intensity = intensity;
 
     return light;
 }
