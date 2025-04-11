@@ -48,10 +48,12 @@ struct Light
     std::string type; // refactor out later
     Vec3f color;
 
-    // Only for directional lights
-    Vec3f direction;
+    // Directional lights
 
-    // Only for point lights
+    Vec3f direction; // direction light moves towards
+
+    // Point lights
+
     Vec3f pos;
     float intensity;
 };

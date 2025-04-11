@@ -294,10 +294,16 @@ struct Mat4x4f
 };
 
 
+Vec3f reflect(Vec3f n, Vec3f l);
 Vec3f get_triangle_normal(Vec3f a, Vec3f b, Vec3f c);
+
+float max(float a, float b);
+float min(float a, float b);
 float clampedf(float a, float min, float max);
 Vec3f clampedVec3f(Vec3f v, float min, float max);
 Vec2f clampedVec2f(Vec2f v, float min, float max);
 
 Mat4x4f get_transformation(Vec3f pos, float scale);
 Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up);
+
+float power(float a, int b);

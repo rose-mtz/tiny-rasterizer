@@ -1,4 +1,42 @@
 #include "Math.h"
+#include <cassert>
+
+
+float min(float a, float b)
+{
+    return (a < b) ? a : b;
+}
+
+
+float max(float a, float b)
+{
+    return (a > b) ? a : b;
+}
+
+
+// (a)^b
+float power(float a, int b)
+{
+    float result = 1.0f;
+    int exp = (b >= 0) ? b : -b;
+
+    while (exp > 0)
+    {
+        result *= a;
+        exp--;
+    }
+    
+    return (b >= 0) ? result : (1.0f / result);
+}
+
+
+// l is incoming vector
+// n is surface normal
+Vec3f reflect(Vec3f n, Vec3f l)
+{
+    // Credit: https://math.stackexchange.com/questions/13261/how-to-get-a-reflection-vector
+    return (l - (n * 2 * (l * n))).normalize(); // Optimize: might not need to normalize if n and l are unit
+}
 
 
 Vec3f get_triangle_normal(Vec3f a, Vec3f b, Vec3f c)
