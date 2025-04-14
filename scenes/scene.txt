@@ -5,16 +5,16 @@ Texture
     filename ./obj/african_head_diffuse.tga
 
 Material
-    k_d 1.0
-    k_s 0.0
-    k_a 1.00
+    k_d 0.8
+    k_s 0.1
+    k_a 0.1
     shininess 10
 
 Camera
-    type perspective
-    position 0.0 0.0 2.0
-    lookAt -0.25 0.0 0.0
-    zoom 1.0
+    type     perspective
+    position -2.0 0.0 2.0
+    lookAt   0.0 0.0 0.0
+    zoom     1.2
 
 Object3D
     model 0
@@ -22,7 +22,7 @@ Object3D
     material 0
     position 0.0 0.0 0.0
     scale 1.0
-    shading flat
+    shading phong
 
 Light
     type point

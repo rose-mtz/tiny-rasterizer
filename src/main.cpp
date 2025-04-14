@@ -241,9 +241,13 @@ int main()
                         interpolated_light = clampedVec3f(interpolated_light, 0.0f, 1.0f); // just to make sure its [0,1]
                         shaded_texture = Vec3f(texture_color.x * interpolated_light.x, texture_color.y * interpolated_light.y, texture_color.z * interpolated_light.z);
                     }
-                    else // phong
+                    else if (obj->shading == "phong")
                     {
                         shaded_texture = Vec3f(texture_color.x * light_phong.x, texture_color.y * light_phong.y, texture_color.z * light_phong.z);
+                    }
+                    else // none
+                    {
+                        shaded_texture = texture_color;
                     }
 
                     image.set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_texture));

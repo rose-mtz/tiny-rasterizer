@@ -148,7 +148,7 @@ Object3D* parse_object3d(std::ifstream& in)
         else if (attribute == "shading")
         {
             assert(iss >> shading);
-            assert(shading == "flat" || shading == "gouraud" || shading == "phong");
+            assert(shading == "flat" || shading == "gouraud" || shading == "phong" || shading == "none");
         }
         else
         {
