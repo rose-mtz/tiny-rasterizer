@@ -66,6 +66,8 @@ public:
     std::vector<Object3D*> objects;
     Camera* camera;
     Vec3f background_color;
+    bool wireframe_mode;
+    bool fill_mode;
 
     Scene(const char* filename);
     ~Scene();

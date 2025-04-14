@@ -207,7 +207,7 @@ Camera* parse_camera(std::ifstream& in)
         }
         else
         {
-            std::cout << "Error:: unkown Object3D attribute " << attribute << '\n';
+            std::cout << "Error:: unkown Camera attribute " << attribute << '\n';
             assert(false);
         }
 
@@ -265,7 +265,7 @@ Light* parse_light(std::ifstream& in)
         }
         else
         {
-            std::cout << "Error:: unkown Object3D attribute " << attribute << '\n';
+            std::cout << "Error:: unkown Light attribute " << attribute << '\n';
             assert(false);
         }
 
@@ -333,9 +333,44 @@ Scene::Scene(const char* filename)
             std::string attribute; iss >> attribute; assert(attribute == "color");
             this->background_color = parse_vec3f(iss);
         }
+        else if (type == "Modes")
+        {
+            bool _wireframe = false;
+            bool _fill = true;
+
+            std::string line; std::getline(in, line);
+            while (line.size() != 0) // blank line indicates end of attributes
+            {
+                std::istringstream iss(line.c_str());
+                std::string attribute; iss >> attribute;
+
+                if (attribute == "wireframe")
+                {
+                    _wireframe = parse_bool(iss);
+                }
+                else if (attribute == "fill")
+                {
+                    _fill = parse_bool(iss);
+                }
+                else
+                {
+                    std::cout << "Error:: unkown Modes attribute " << attribute << '\n';
+                    assert(false);
+                }
+
+                if (in.eof()) // was last line of file
+                {
+                    break;
+                }
+                std::getline(in, line); // get next line
+            }
+
+            this->wireframe_mode = _wireframe;
+            this->fill_mode = _fill;
+        }
         else if (line.size() != 0)
         {
-            std::cout << "Error:: unkown object type " << line << '\n';
+            std::cout << "Error:: unkown type " << line << '\n';
             assert(false); // Error: unkown type
         }
     }

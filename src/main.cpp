@@ -22,6 +22,9 @@ const int   device_height = 1000;
 const float virtual_screen_width = 0.50;
 const float virtual_screen_height = 0.50;
 
+float** z_buffer = nullptr;
+TGAImage* image = nullptr;
+
 struct TrianglePixel
 {
     Vec2i pixel;
@@ -42,15 +45,19 @@ Vec3f to_vec3fcolor(TGAColor color);
 std::vector<LinePixel> rasterize_line(Vec2f p0, Vec2f p1, float thickness = 1.0f);
 std::vector<TrianglePixel> rasterize_triangle(Vec2f a, Vec2f b, Vec2f c);
 float calculate_shading(Vec3f p, Vec3f n, Material mat, Light light, Vec3f camera);
+void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color);
+void draw_triangle_flat(Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0, Vec2f uv1, Vec2f uv2, TGAImage* texture, Vec3f shading);
+void draw_triangle_gouraud(Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0, Vec2f uv1, Vec2f uv2, TGAImage* texture, Vec3f light0, Vec3f light1, Vec3f light2);
+void draw_triangle_phong(Vec3f v0, Vec3f v1, Vec3f v2, Vec3f v0_cam, Vec3f v1_cam, Vec3f v2_cam, Vec3f n0_cam, Vec3f n1_cam, Vec3f n2_cam, Vec2f uv0, Vec2f uv1, Vec2f uv2, TGAImage* texture, std::vector<Light*> lights, Mat4x4f camera, Mat3x3f camera_inv_trans, Material* mat);
 
 
 int main()
 {
-    TGAImage image(device_width, device_height, TGAImage::RGB);
     Scene scene ("scenes/scene.txt");
-    image.fill(to_tgacolor(scene.background_color));
+    image = new TGAImage(device_width, device_height, TGAImage::RGB);
+    image->fill(to_tgacolor(scene.background_color));
     
-    float** z_buffer = new float*[device_height];
+    z_buffer = new float*[device_height];
     for (int i = 0; i < device_height; i++)
     {
         z_buffer[i] = new float[device_width];
@@ -190,115 +197,41 @@ int main()
                 light_gouraud_c = clampedVec3f(light_gouraud_c, 0.0f, 1.0f);
             }
 
+            // NOTE: Barycentric coordinates will be distorted by the non-affine transformation perspective projection
+            //       So, unless they are re-adjusted for this distortion, they will be wrong
+            //       I haven't noticed any problems caused by this, so for now I'll stick with this not correcting them
 
-            std::vector<TrianglePixel> raster_triangle = rasterize_triangle(Vec2f(v0_device.x, v0_device.y), Vec2f(v1_device.x, v1_device.y), Vec2f(v2_device.x, v2_device.y));
-            for (int i = 0; i < raster_triangle.size(); i++)
+            if (scene.fill_mode)
             {
-                // NOTE: Barycentric coordinates will be distorted by the non-affine transformation perspective projection
-                //       So, unless they are re-adjusted for this distortion, they will be wrong
-                //       I haven't noticed any problems caused by this, so for now I'll stick with this not correcting them
-
-                TrianglePixel pixel = raster_triangle[i];
-                float interpolated_depth = (v0_device.z * pixel.barycentric.x) + (v1_device.z * pixel.barycentric.y) + (v2_device.z * pixel.barycentric.z);
-
-                if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
+                if (obj->shading == "flat")
                 {
-                    Vec2f interpolated_uv = clampedVec2f((uv0 * pixel.barycentric.x) + (uv1 * pixel.barycentric.y) + (uv2 * pixel.barycentric.z), 0.0f, 1.0f);
-                    Vec3f interpolated_normal = ((n0_camera * pixel.barycentric.x) + (n1_camera * pixel.barycentric.y) + (n2_camera * pixel.barycentric.z)).normalize(); // camera space
-
-                    // Phong shading
-
-                    Vec3f light_phong (0.0f);
-                    if (obj->shading == "phong")
-                    {
-                        Vec3f interpolated_point = ((v0_camera * pixel.barycentric.x) + (v1_camera * pixel.barycentric.y) + (v2_camera * pixel.barycentric.z)).xyz(); // camera space
-
-                        for (int l = 0; l < scene.lights.size(); l++)
-                        {
-                            // World --> camera
-                            Light light_camera = *scene.lights[l];
-                            light_camera.pos = (camera * Vec4f(light_camera.pos, 1.0f)).xyz();
-                            light_camera.direction = (camera_inv_trans * light_camera.direction).normalize();
-                            
-                            // Shading done in camera space
-                            float shading = calculate_shading(interpolated_point, interpolated_normal, *obj->mat, light_camera, Vec3f(0.0f));
-                            Vec3f light_color = light_camera.color;
-                            light_phong = light_phong + Vec3f(light_color.x * shading, light_color.y * shading, light_color.z * shading);
-                        }
-                        light_phong = clampedVec3f(light_phong, 0.0f, 1.0f);
-                    }
-
-                    Vec2i texture_pixel = Vec2i((obj->texture->get_width() - 1) * interpolated_uv.x, (obj->texture->get_height() - 1) * interpolated_uv.y);
-                    Vec3f texture_color = to_vec3fcolor(obj->texture->get(texture_pixel.x, texture_pixel.y));
-
-                    Vec3f shaded_texture;
-                    if (obj->shading == "flat")
-                    {
-                        shaded_texture = Vec3f(texture_color.x * light_flat.x, texture_color.y * light_flat.y, texture_color.z * light_flat.z);
-                    }
-                    else if (obj->shading == "gouraud")
-                    {
-                        Vec3f interpolated_light = (light_gouraud_a * pixel.barycentric.x) + (light_gouraud_b * pixel.barycentric.y) + (light_gouraud_c * pixel.barycentric.z);
-                        interpolated_light = clampedVec3f(interpolated_light, 0.0f, 1.0f); // just to make sure its [0,1]
-                        shaded_texture = Vec3f(texture_color.x * interpolated_light.x, texture_color.y * interpolated_light.y, texture_color.z * interpolated_light.z);
-                    }
-                    else if (obj->shading == "phong")
-                    {
-                        shaded_texture = Vec3f(texture_color.x * light_phong.x, texture_color.y * light_phong.y, texture_color.z * light_phong.z);
-                    }
-                    else // none
-                    {
-                        shaded_texture = texture_color;
-                    }
-
-                    image.set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_texture));
-                    z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
+                    draw_triangle_flat(v0_device, v1_device, v2_device, uv0, uv1, uv2, obj->texture, light_flat);
                 }
+                else if (obj->shading == "gouraud")
+                {
+                    draw_triangle_gouraud(v0_device, v1_device, v2_device, uv0, uv1, uv2, obj->texture, light_gouraud_a, light_gouraud_b, light_gouraud_c);
+                }
+                else if (obj->shading == "phong")
+                {
+                    draw_triangle_phong(v0_device, v1_device, v2_device, v0_camera.xyz(), v1_camera.xyz(), v2_camera.xyz(), n0_camera, n1_camera, n2_camera, uv0, uv1, uv2, obj->texture, scene.lights, camera, camera_inv_trans, obj->mat);
+                }
+                // TODO: else no shading
             }
 
-            // Wire frame render
-            // Has problems, possible due to z-fighting (not sure)
-            // std::vector<LinePixel> raster_line = rasterize_line(v0_device.xy(), v1_device.xy(), 2.0f);
-            // for (int i = 0; i < raster_line.size(); i++)
-            // {
-            //     LinePixel pixel = raster_line[i];
-            //     float interpolated_depth = v0_device.z * (1.0f - pixel.t) + v1_device.z * pixel.t;
-
-            //     if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
-            //     {
-            //         image.set(pixel.pixel.x, pixel.pixel.y, TGA_RED);
-            //         z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
-            //     }
-            // }
-            // raster_line = rasterize_line(v1_device.xy(), v2_device.xy(), 2.0f);
-            // for (int i = 0; i < raster_line.size(); i++)
-            // {
-            //     LinePixel pixel = raster_line[i];
-            //     float interpolated_depth = v1_device.z * (1.0f - pixel.t) + v2_device.z * pixel.t;
-
-            //     if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
-            //     {
-            //         image.set(pixel.pixel.x, pixel.pixel.y, TGA_RED);
-            //         z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
-            //     }
-            // }
-            // raster_line = rasterize_line(v2_device.xy(), v0_device.xy(), 2.0f);
-            // for (int i = 0; i < raster_line.size(); i++)
-            // {
-            //     LinePixel pixel = raster_line[i];
-            //     float interpolated_depth = v2_device.z * (1.0f - pixel.t) + v0_device.z * pixel.t;
-
-            //     if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
-            //     {
-            //         image.set(pixel.pixel.x, pixel.pixel.y, TGA_RED);
-            //         z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
-            //     }
-            // }
+            if (scene.wireframe_mode)
+            {
+                // Wire frame render
+                float line_thickness = 1.0f;
+                float wireframe_epsilon = 0.01f; // for preventing z-fighting with triangle
+                draw_line(Vec3f(v0_device.x, v0_device.y, v0_device.z + wireframe_epsilon), Vec3f(v1_device.x, v1_device.y, v1_device.z + wireframe_epsilon), line_thickness, RED);
+                draw_line(Vec3f(v1_device.x, v1_device.y, v1_device.z + wireframe_epsilon), Vec3f(v2_device.x, v2_device.y, v2_device.z + wireframe_epsilon), line_thickness, RED);
+                draw_line(Vec3f(v2_device.x, v2_device.y, v2_device.z + wireframe_epsilon), Vec3f(v0_device.x, v0_device.y, v0_device.z + wireframe_epsilon), line_thickness, RED);
+            }
         }
     }
 
-    image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
-    image.write_tga_file("output.tga");
+    image->flip_vertically(); // i want to have the origin at the left bottom corner of the image
+    image->write_tga_file("output.tga");
 
     return 0;
 }
@@ -453,4 +386,120 @@ float calculate_shading(Vec3f p, Vec3f n, Material mat, Light light, Vec3f camer
 
     float shading = clampedf(ambient + diffuse + specular, 0.0f, 1.0f);
     return shading;
+}
+
+
+// Device coordinates
+// No shading, or textures for lines.
+void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color)
+{
+    std::vector<LinePixel> raster_line = rasterize_line(v0.xy(), v1.xy(), thickness);
+
+    for (int i = 0; i < raster_line.size(); i++)
+    {
+        LinePixel pixel = raster_line[i];
+        float interpolated_depth = v0.z * (1.0f - pixel.t) + v1.z * pixel.t;
+
+        if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
+        {
+            image->set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(color));
+            z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
+        }
+    }
+}
+
+
+// Device coordinates
+void draw_triangle_flat(Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0, Vec2f uv1, Vec2f uv2, TGAImage* texture, Vec3f shading)
+{
+    std::vector<TrianglePixel> raster_triangle = rasterize_triangle(Vec2f(v0.x, v0.y), Vec2f(v1.x, v1.y), Vec2f(v2.x, v2.y));
+
+    for (int i = 0; i < raster_triangle.size(); i++)
+    {
+        TrianglePixel pixel = raster_triangle[i];
+        float interpolated_depth = (v0.z * pixel.barycentric.x) + (v1.z * pixel.barycentric.y) + (v2.z * pixel.barycentric.z);
+
+        if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
+        {
+            Vec2f interpolated_uv = clampedVec2f((uv0 * pixel.barycentric.x) + (uv1 * pixel.barycentric.y) + (uv2 * pixel.barycentric.z), 0.0f, 1.0f);
+            Vec2i texture_pixel = Vec2i((texture->get_width() - 1) * interpolated_uv.x, (texture->get_height() - 1) * interpolated_uv.y);
+            Vec3f texture_color = to_vec3fcolor(texture->get(texture_pixel.x, texture_pixel.y));
+
+            // Flat shading
+            Vec3f shaded_texture = Vec3f(texture_color.x * shading.x, texture_color.y * shading.y, texture_color.z * shading.z);
+
+            image->set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_texture));
+            z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
+        }
+    }
+}
+
+
+// Device coordinates
+void draw_triangle_gouraud(Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0, Vec2f uv1, Vec2f uv2, TGAImage* texture, Vec3f light0, Vec3f light1, Vec3f light2)
+{
+    std::vector<TrianglePixel> raster_triangle = rasterize_triangle(Vec2f(v0.x, v0.y), Vec2f(v1.x, v1.y), Vec2f(v2.x, v2.y));
+
+    for (int i = 0; i < raster_triangle.size(); i++)
+    {
+        TrianglePixel pixel = raster_triangle[i];
+        float interpolated_depth = (v0.z * pixel.barycentric.x) + (v1.z * pixel.barycentric.y) + (v2.z * pixel.barycentric.z);
+
+        if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
+        {
+            Vec2f interpolated_uv = clampedVec2f((uv0 * pixel.barycentric.x) + (uv1 * pixel.barycentric.y) + (uv2 * pixel.barycentric.z), 0.0f, 1.0f);
+            Vec2i texture_pixel = Vec2i((texture->get_width() - 1) * interpolated_uv.x, (texture->get_height() - 1) * interpolated_uv.y);
+            Vec3f texture_color = to_vec3fcolor(texture->get(texture_pixel.x, texture_pixel.y));
+
+            // Gouraud shading
+            Vec3f interpolated_light = (light0 * pixel.barycentric.x) + (light1 * pixel.barycentric.y) + (light2 * pixel.barycentric.z);
+            interpolated_light = clampedVec3f(interpolated_light, 0.0f, 1.0f); // just to make sure its [0,1]
+            Vec3f shaded_texture = Vec3f(texture_color.x * interpolated_light.x, texture_color.y * interpolated_light.y, texture_color.z * interpolated_light.z);
+
+            image->set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_texture));
+            z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
+        }
+    }
+}
+
+
+// Device coordinates
+void draw_triangle_phong(Vec3f v0, Vec3f v1, Vec3f v2, Vec3f v0_cam, Vec3f v1_cam, Vec3f v2_cam, Vec3f n0_cam, Vec3f n1_cam, Vec3f n2_cam, Vec2f uv0, Vec2f uv1, Vec2f uv2, TGAImage* texture, std::vector<Light*> lights, Mat4x4f camera, Mat3x3f camera_inv_trans, Material* mat)
+{
+    std::vector<TrianglePixel> raster_triangle = rasterize_triangle(Vec2f(v0.x, v0.y), Vec2f(v1.x, v1.y), Vec2f(v2.x, v2.y));
+
+    for (int i = 0; i < raster_triangle.size(); i++)
+    {
+        TrianglePixel pixel = raster_triangle[i];
+        float interpolated_depth = (v0.z * pixel.barycentric.x) + (v1.z * pixel.barycentric.y) + (v2.z * pixel.barycentric.z);
+
+        if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
+        {
+            Vec2f interpolated_uv = clampedVec2f((uv0 * pixel.barycentric.x) + (uv1 * pixel.barycentric.y) + (uv2 * pixel.barycentric.z), 0.0f, 1.0f);
+            Vec3f interpolated_point = ((v0_cam * pixel.barycentric.x) + (v1_cam * pixel.barycentric.y) + (v2_cam * pixel.barycentric.z)); // camera 
+            Vec3f interpolated_normal = ((n0_cam * pixel.barycentric.x) + (n1_cam * pixel.barycentric.y) + (n2_cam * pixel.barycentric.z)).normalize(); // camera space
+
+            Vec3f light (0.0f);
+            for (int l = 0; l < lights.size(); l++)
+            {
+                // World --> camera
+                Light light_camera = *lights[l];
+                light_camera.pos = (camera * Vec4f(light_camera.pos, 1.0f)).xyz();
+                light_camera.direction = (camera_inv_trans * light_camera.direction).normalize();
+                
+                // Shading done in camera space
+                float shading = calculate_shading(interpolated_point, interpolated_normal, *mat, light_camera, Vec3f(0.0f));
+                Vec3f light_color = light_camera.color;
+                light = light + Vec3f(light_color.x * shading, light_color.y * shading, light_color.z * shading);
+            }
+            light = clampedVec3f(light, 0.0f, 1.0f);
+
+            Vec2i texture_pixel = Vec2i((texture->get_width() - 1) * interpolated_uv.x, (texture->get_height() - 1) * interpolated_uv.y);
+            Vec3f texture_color = to_vec3fcolor(texture->get(texture_pixel.x, texture_pixel.y));
+            Vec3f shaded_texture = Vec3f(texture_color.x * light.x, texture_color.y * light.y, texture_color.z * light.z);
+
+            image->set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_texture));
+            z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
+        }
+    }
 }

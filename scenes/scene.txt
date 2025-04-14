@@ -22,7 +22,7 @@ Object3D
     material 0
     position 0.0 0.0 0.0
     scale 1.0
-    shading phong
+    shading gouraud
 
 Light
     type point
@@ -32,4 +32,8 @@ Light
     intensity 4.0
 
 Background
-    color 0.0 0.0 0.25
+    color 0.05 0.05 0.05
+
+Modes
+    wireframe false
+    fill true
