@@ -326,6 +326,13 @@ Scene::Scene(const char* filename)
         {
             this->lights.push_back(parse_light(in));
         }
+        else if (type == "Background")
+        {
+            std::string line; std::getline(in, line);
+            std::istringstream iss(line.c_str());
+            std::string attribute; iss >> attribute; assert(attribute == "color");
+            this->background_color = parse_vec3f(iss);
+        }
         else if (line.size() != 0)
         {
             std::cout << "Error:: unkown object type " << line << '\n';

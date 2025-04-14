@@ -263,6 +263,16 @@ bool TGAImage::set(int x, int y, TGAColor c) {
 	return true;
 }
 
+void TGAImage::fill(TGAColor c) {
+	for (int x = 0; x < width; x++)
+	{
+		for (int y = 0; y < height; y++)
+		{
+			memcpy(data+(x+y*width)*bytespp, c.raw, bytespp);
+		}
+	}
+}
+
 int TGAImage::get_bytespp() {
 	return bytespp;
 }

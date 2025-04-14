@@ -65,6 +65,7 @@ public:
     std::vector<Light*> lights;
     std::vector<Object3D*> objects;
     Camera* camera;
+    Vec3f background_color;
 
     Scene(const char* filename);
     ~Scene();

@@ -48,6 +48,7 @@ int main()
 {
     TGAImage image(device_width, device_height, TGAImage::RGB);
     Scene scene ("scenes/scene.txt");
+    image.fill(to_tgacolor(scene.background_color));
     
     float** z_buffer = new float*[device_height];
     for (int i = 0; i < device_height; i++)

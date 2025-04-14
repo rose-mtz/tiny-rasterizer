@@ -91,6 +91,7 @@ public:
 	bool scale(int w, int h);
 	TGAColor get(int x, int y);
 	bool set(int x, int y, TGAColor c);
+	void fill(TGAColor c);
 	~TGAImage();
 	TGAImage & operator =(const TGAImage &img);
 	int get_width();
