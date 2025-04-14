@@ -7,7 +7,7 @@ Texture
 Material
     k_d 1.0
     k_s 0.0
-    k_a 0.00
+    k_a 1.00
     shininess 10
 
 Camera

@@ -251,6 +251,45 @@ int main()
                     z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
                 }
             }
+
+            // Wire frame render
+            // Has problems, possible due to z-fighting (not sure)
+            // std::vector<LinePixel> raster_line = rasterize_line(v0_device.xy(), v1_device.xy(), 2.0f);
+            // for (int i = 0; i < raster_line.size(); i++)
+            // {
+            //     LinePixel pixel = raster_line[i];
+            //     float interpolated_depth = v0_device.z * (1.0f - pixel.t) + v1_device.z * pixel.t;
+
+            //     if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
+            //     {
+            //         image.set(pixel.pixel.x, pixel.pixel.y, TGA_RED);
+            //         z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
+            //     }
+            // }
+            // raster_line = rasterize_line(v1_device.xy(), v2_device.xy(), 2.0f);
+            // for (int i = 0; i < raster_line.size(); i++)
+            // {
+            //     LinePixel pixel = raster_line[i];
+            //     float interpolated_depth = v1_device.z * (1.0f - pixel.t) + v2_device.z * pixel.t;
+
+            //     if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
+            //     {
+            //         image.set(pixel.pixel.x, pixel.pixel.y, TGA_RED);
+            //         z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
+            //     }
+            // }
+            // raster_line = rasterize_line(v2_device.xy(), v0_device.xy(), 2.0f);
+            // for (int i = 0; i < raster_line.size(); i++)
+            // {
+            //     LinePixel pixel = raster_line[i];
+            //     float interpolated_depth = v2_device.z * (1.0f - pixel.t) + v0_device.z * pixel.t;
+
+            //     if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
+            //     {
+            //         image.set(pixel.pixel.x, pixel.pixel.y, TGA_RED);
+            //         z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
+            //     }
+            // }
         }
     }
 
@@ -278,14 +317,13 @@ TGAColor to_tgacolor(Vec3f color)
 }
 
 
-// Rastersizes line
+// Rasterize line
 // Points must be in device coordinates
 // Thickness is in pixels
-// KNOWN BUG: bounding box clips thickness.
 std::vector<LinePixel> rasterize_line(Vec2f p0, Vec2f p1, float thickness)
-{
-    // TODO: test this function!!!
-    
+{   
+    // KNOWN BUG: bounding box clips thickness.
+
     std::vector<LinePixel> pixels;
 
     // Bounding box
@@ -311,10 +349,11 @@ std::vector<LinePixel> rasterize_line(Vec2f p0, Vec2f p1, float thickness)
             Vec2f p (col + 0.5f, row + 0.5f);
             float projected_distance = (p - p0) * dir;
             float perp_distance = ((p - p0) - (dir * projected_distance)).length();
+            float t = projected_distance / line_length;
 
             if (perp_distance <= half_thickness)
             {
-                pixels.push_back(LinePixel {Vec2i(col, row), (1.0f - (projected_distance / line_length))});
+                pixels.push_back(LinePixel {Vec2i(col, row), t});
             }
         }
     }
@@ -323,7 +362,7 @@ std::vector<LinePixel> rasterize_line(Vec2f p0, Vec2f p1, float thickness)
 }
 
 
-// Rastersizes a triangle
+// Rasterize a triangle
 // Points must be in device coordinates
 std::vector<TrianglePixel> rasterize_triangle(Vec2f a, Vec2f b, Vec2f c)
 {

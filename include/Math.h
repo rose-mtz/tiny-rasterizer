@@ -69,6 +69,7 @@ template <class t> struct Vec3
 
 	float     length () const { return std::sqrt(x*x+y*y+z*z); }
 	Vec3<t> & normalize(t l=1) { *this = (*this)*(l/length()); return *this; }
+	Vec2<t> xy() const { return Vec2<t>(x, y); }
 
 	// For debugging
 
