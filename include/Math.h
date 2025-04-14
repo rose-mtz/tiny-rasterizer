@@ -308,3 +308,7 @@ Mat4x4f get_transformation(Vec3f pos, float scale);
 Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up);
 
 float power(float a, int b);
+
+Vec3f interpolate_barycentric_vec3f(Vec3f a, Vec3f b, Vec3f c, Vec3f weights);
+Vec2f interpolate_barycentric_vec2f(Vec2f a, Vec2f b, Vec2f c, Vec3f weights);
+float interpolate_barycentric_f    (float a, float b, float c, Vec3f weights);

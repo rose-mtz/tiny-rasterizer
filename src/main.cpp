@@ -157,7 +157,7 @@ int main()
             Vec3f light_gouraud_c (0.0f);
             if (obj->shading == "flat")
             {
-                Vec3f triangle_center = ((v0_camera + v1_camera + v2_camera) * (1.0f / 3.0f)).xyz();
+                Vec3f triangle_center = interpolate_barycentric_vec3f(v0_camera.xyz(), v1_camera.xyz(), v2_camera.xyz(), Vec3f(1.0f / 3.0f));
                 for (int l = 0; l < scene.lights.size(); l++)
                 {
                     // World --> camera
@@ -417,11 +417,11 @@ void draw_triangle_flat(Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0, Vec2f uv1, Vec2
     for (int i = 0; i < raster_triangle.size(); i++)
     {
         TrianglePixel pixel = raster_triangle[i];
-        float interpolated_depth = (v0.z * pixel.barycentric.x) + (v1.z * pixel.barycentric.y) + (v2.z * pixel.barycentric.z);
+        float interpolated_depth = interpolate_barycentric_f(v0.z, v1.z, v2.z, pixel.barycentric);
 
         if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
         {
-            Vec2f interpolated_uv = clampedVec2f((uv0 * pixel.barycentric.x) + (uv1 * pixel.barycentric.y) + (uv2 * pixel.barycentric.z), 0.0f, 1.0f);
+            Vec2f interpolated_uv = clampedVec2f(interpolate_barycentric_vec2f(uv0, uv1, uv2, pixel.barycentric), 0.0f, 1.0f);
             Vec2i texture_pixel = Vec2i((texture->get_width() - 1) * interpolated_uv.x, (texture->get_height() - 1) * interpolated_uv.y);
             Vec3f texture_color = to_vec3fcolor(texture->get(texture_pixel.x, texture_pixel.y));
 
@@ -443,16 +443,16 @@ void draw_triangle_gouraud(Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0, Vec2f uv1, V
     for (int i = 0; i < raster_triangle.size(); i++)
     {
         TrianglePixel pixel = raster_triangle[i];
-        float interpolated_depth = (v0.z * pixel.barycentric.x) + (v1.z * pixel.barycentric.y) + (v2.z * pixel.barycentric.z);
+        float interpolated_depth = interpolate_barycentric_f(v0.z, v1.z, v2.z, pixel.barycentric);
 
         if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
         {
-            Vec2f interpolated_uv = clampedVec2f((uv0 * pixel.barycentric.x) + (uv1 * pixel.barycentric.y) + (uv2 * pixel.barycentric.z), 0.0f, 1.0f);
+            Vec2f interpolated_uv = clampedVec2f(interpolate_barycentric_vec2f(uv0, uv1, uv2, pixel.barycentric), 0.0f, 1.0f);
             Vec2i texture_pixel = Vec2i((texture->get_width() - 1) * interpolated_uv.x, (texture->get_height() - 1) * interpolated_uv.y);
             Vec3f texture_color = to_vec3fcolor(texture->get(texture_pixel.x, texture_pixel.y));
 
             // Gouraud shading
-            Vec3f interpolated_light = (light0 * pixel.barycentric.x) + (light1 * pixel.barycentric.y) + (light2 * pixel.barycentric.z);
+            Vec3f interpolated_light = interpolate_barycentric_vec3f(light0, light1, light2, pixel.barycentric);
             interpolated_light = clampedVec3f(interpolated_light, 0.0f, 1.0f); // just to make sure its [0,1]
             Vec3f shaded_texture = Vec3f(texture_color.x * interpolated_light.x, texture_color.y * interpolated_light.y, texture_color.z * interpolated_light.z);
 
@@ -471,13 +471,13 @@ void draw_triangle_phong(Vec3f v0, Vec3f v1, Vec3f v2, Vec3f v0_cam, Vec3f v1_ca
     for (int i = 0; i < raster_triangle.size(); i++)
     {
         TrianglePixel pixel = raster_triangle[i];
-        float interpolated_depth = (v0.z * pixel.barycentric.x) + (v1.z * pixel.barycentric.y) + (v2.z * pixel.barycentric.z);
+        float interpolated_depth = interpolate_barycentric_f(v0.z, v1.z, v2.z, pixel.barycentric);
 
         if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
         {
-            Vec2f interpolated_uv = clampedVec2f((uv0 * pixel.barycentric.x) + (uv1 * pixel.barycentric.y) + (uv2 * pixel.barycentric.z), 0.0f, 1.0f);
-            Vec3f interpolated_point = ((v0_cam * pixel.barycentric.x) + (v1_cam * pixel.barycentric.y) + (v2_cam * pixel.barycentric.z)); // camera 
-            Vec3f interpolated_normal = ((n0_cam * pixel.barycentric.x) + (n1_cam * pixel.barycentric.y) + (n2_cam * pixel.barycentric.z)).normalize(); // camera space
+            Vec2f interpolated_uv = clampedVec2f(interpolate_barycentric_vec2f(uv0, uv1, uv2, pixel.barycentric), 0.0f, 1.0f);
+            Vec3f interpolated_point = interpolate_barycentric_vec3f(v0_cam, v1_cam, v2_cam, pixel.barycentric); // camera
+            Vec3f interpolated_normal = interpolate_barycentric_vec3f(n0_cam, n1_cam, n2_cam, pixel.barycentric).normalize(); // camera space
 
             Vec3f light (0.0f);
             for (int l = 0; l < lights.size(); l++)

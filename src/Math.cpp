@@ -107,3 +107,21 @@ Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up)
 
     return rotation_transposed * translation_inv;
 }
+
+
+Vec3f interpolate_barycentric_vec3f(Vec3f a, Vec3f b, Vec3f c, Vec3f weights)
+{
+    return (a * weights.x) + (b * weights.y) + (c * weights.z);
+}
+
+
+Vec2f interpolate_barycentric_vec2f(Vec2f a, Vec2f b, Vec2f c, Vec3f weights)
+{
+    return (a * weights.x) + (b * weights.y) + (c * weights.z);
+}
+
+
+float interpolate_barycentric_f(float a, float b, float c, Vec3f weights)
+{
+    return (a * weights.x) + (b * weights.y) + (c * weights.z);
+}
