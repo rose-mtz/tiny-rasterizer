@@ -116,13 +116,12 @@ int main()
             Vec3f n1_camera = (camera_world_inv_trans * n1).normalize();
             Vec3f n2_camera = (camera_world_inv_trans * n2).normalize();
 
-            // Back facing triangle check
-            // NOTE: might need to use some epsilon, but that will have its own problems
+            // Culling: back facing triangle check
+            // NOTE: some triangles that should be culled will not be culled
+            //       but (hopefully) no triangle that can be seen (i.e not supposed to be culled)
+            //       will not be culled
             Vec3f triangle_normal = get_triangle_normal(v0_camera.xyz(), v1_camera.xyz(), v2_camera.xyz()).normalize();
-            if (triangle_normal * Vec3f(0.0f, 0.0f, 1.0f) <= 0.0f)
-            {
-                continue;
-            }
+            if (triangle_normal * Vec3f(0.0f, 0.0f, 1.0f) <= -0.25f) continue;
 
             Vec4f v0_projected = projection * v0_camera;
             Vec4f v1_projected = projection * v1_camera;

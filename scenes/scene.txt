@@ -13,7 +13,7 @@ Material
 Camera
     type perspective
     position 0.0 0.0 2.0
-    lookAt 0.0 0.0 0.0
+    lookAt -0.25 0.0 0.0
     zoom 1.0
 
 Object3D
@@ -22,7 +22,7 @@ Object3D
     material 0
     position 0.0 0.0 0.0
     scale 1.0
-    shading phong
+    shading flat
 
 Light
     type point
