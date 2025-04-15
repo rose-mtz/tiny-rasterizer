@@ -31,11 +31,20 @@ struct TrianglePixel
     Vec3f barycentric;
 };
 
-
 struct LinePixel
 {
     Vec2i pixel;
     float t;
+};
+
+struct Vertex
+{
+    Vec3f pos_device;
+    Vec3f pos_camera;
+    Vec3f norm_camera;
+    Vec2f uv;
+    Vec3f shading;
+    Vec3f color;
 };
 
 
@@ -46,9 +55,8 @@ std::vector<LinePixel> rasterize_line(Vec2f p0, Vec2f p1, float thickness = 1.0f
 std::vector<TrianglePixel> rasterize_triangle(Vec2f a, Vec2f b, Vec2f c);
 float calculate_shading(Vec3f p, Vec3f n, Material mat, Light light, Vec3f camera);
 void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color);
-void draw_triangle_flat(Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0, Vec2f uv1, Vec2f uv2, TGAImage* texture, Vec3f shading);
-void draw_triangle_gouraud(Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0, Vec2f uv1, Vec2f uv2, TGAImage* texture, Vec3f light0, Vec3f light1, Vec3f light2);
-void draw_triangle_phong(Vec3f v0, Vec3f v1, Vec3f v2, Vec3f v0_cam, Vec3f v1_cam, Vec3f v2_cam, Vec3f n0_cam, Vec3f n1_cam, Vec3f n2_cam, Vec2f uv0, Vec2f uv1, Vec2f uv2, TGAImage* texture, std::vector<Light*> lights, Mat4x4f camera, Mat3x3f camera_inv_trans, Material* mat);
+void draw_triangle(Vertex v0, Vertex v1, Vertex v2, TGAImage* texture);
+void draw_triangle(Vertex v0, Vertex v1, Vertex v2, TGAImage* texture, std::vector<Light*> lights, Mat4x4f camera, Mat3x3f camera_inv_trans, Material* mat);
 
 
 int main()
@@ -205,19 +213,35 @@ int main()
             {
                 if (obj->shading == "flat")
                 {
-                    draw_triangle_flat(v0_device, v1_device, v2_device, uv0, uv1, uv2, obj->texture, light_flat);
+                    Vertex vertex0 = {.pos_device = v0_device, .uv = uv0, .shading = light_flat};
+                    Vertex vertex1 = {.pos_device = v1_device, .uv = uv1, .shading = light_flat};
+                    Vertex vertex2 = {.pos_device = v2_device, .uv = uv2, .shading = light_flat};
+
+                    draw_triangle(vertex0, vertex1, vertex2, obj->texture);
                 }
                 else if (obj->shading == "gouraud")
                 {
-                    draw_triangle_gouraud(v0_device, v1_device, v2_device, uv0, uv1, uv2, obj->texture, light_gouraud_a, light_gouraud_b, light_gouraud_c);
+                    Vertex vertex0 = {.pos_device = v0_device, .uv = uv0, .shading = light_gouraud_a};
+                    Vertex vertex1 = {.pos_device = v1_device, .uv = uv1, .shading = light_gouraud_b};
+                    Vertex vertex2 = {.pos_device = v2_device, .uv = uv2, .shading = light_gouraud_c};
+
+                    draw_triangle(vertex0, vertex1, vertex2, obj->texture);
                 }
                 else if (obj->shading == "phong")
                 {
-                    draw_triangle_phong(v0_device, v1_device, v2_device, v0_camera.xyz(), v1_camera.xyz(), v2_camera.xyz(), n0_camera, n1_camera, n2_camera, uv0, uv1, uv2, obj->texture, scene.lights, camera, camera_inv_trans, obj->mat);
+                    Vertex vertex0 = {.pos_device = v0_device, .pos_camera = v0_camera.xyz(), .norm_camera = n0_camera, .uv = uv0, .shading = light_gouraud_a};
+                    Vertex vertex1 = {.pos_device = v1_device, .pos_camera = v1_camera.xyz(), .norm_camera = n1_camera, .uv = uv1, .shading = light_gouraud_b};
+                    Vertex vertex2 = {.pos_device = v2_device, .pos_camera = v2_camera.xyz(), .norm_camera = n2_camera, .uv = uv2, .shading = light_gouraud_c};
+
+                    draw_triangle(vertex0, vertex1, vertex2, obj->texture, scene.lights, camera, camera_inv_trans, obj->mat);
                 }
                 else // shading none
                 {
-                    draw_triangle_flat(v0_device, v1_device, v2_device, uv0, uv1, uv2, obj->texture, Vec3f(1.0f, 1.0f, 1.0f));
+                    Vertex vertex0 = {.pos_device = v0_device, .uv = uv0, .shading = Vec3f(1.0f, 1.0f, 1.0f)};
+                    Vertex vertex1 = {.pos_device = v1_device, .uv = uv1, .shading = Vec3f(1.0f, 1.0f, 1.0f)};
+                    Vertex vertex2 = {.pos_device = v2_device, .uv = uv2, .shading = Vec3f(1.0f, 1.0f, 1.0f)};
+
+                    draw_triangle(vertex0, vertex1, vertex2, obj->texture);
                 }
             }
 
@@ -412,50 +436,25 @@ void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color)
 }
 
 
-// Device coordinates
-void draw_triangle_flat(Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0, Vec2f uv1, Vec2f uv2, TGAImage* texture, Vec3f shading)
+// Phong shading
+void draw_triangle(Vertex v0, Vertex v1, Vertex v2, TGAImage* texture)
 {
-    std::vector<TrianglePixel> raster_triangle = rasterize_triangle(Vec2f(v0.x, v0.y), Vec2f(v1.x, v1.y), Vec2f(v2.x, v2.y));
+    // TODO: if texture == nullptr then use vertex color
+
+    std::vector<TrianglePixel> raster_triangle = rasterize_triangle(Vec2f(v0.pos_device.x, v0.pos_device.y), Vec2f(v1.pos_device.x, v1.pos_device.y), Vec2f(v2.pos_device.x, v2.pos_device.y));
 
     for (int i = 0; i < raster_triangle.size(); i++)
     {
         TrianglePixel pixel = raster_triangle[i];
-        float interpolated_depth = interpolate_barycentric_f(v0.z, v1.z, v2.z, pixel.barycentric);
+        float interpolated_depth = interpolate_barycentric_f(v0.pos_device.z, v1.pos_device.z, v2.pos_device.z, pixel.barycentric);
 
         if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
         {
-            Vec2f interpolated_uv = clampedVec2f(interpolate_barycentric_vec2f(uv0, uv1, uv2, pixel.barycentric), 0.0f, 1.0f);
+            Vec2f interpolated_uv = clampedVec2f(interpolate_barycentric_vec2f(v0.uv, v1.uv, v2.uv, pixel.barycentric), 0.0f, 1.0f);
             Vec2i texture_pixel = Vec2i((texture->get_width() - 1) * interpolated_uv.x, (texture->get_height() - 1) * interpolated_uv.y);
             Vec3f texture_color = to_vec3fcolor(texture->get(texture_pixel.x, texture_pixel.y));
 
-            // Flat shading
-            Vec3f shaded_texture = Vec3f(texture_color.x * shading.x, texture_color.y * shading.y, texture_color.z * shading.z);
-
-            image->set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_texture));
-            z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
-        }
-    }
-}
-
-
-// Device coordinates
-void draw_triangle_gouraud(Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0, Vec2f uv1, Vec2f uv2, TGAImage* texture, Vec3f light0, Vec3f light1, Vec3f light2)
-{
-    std::vector<TrianglePixel> raster_triangle = rasterize_triangle(Vec2f(v0.x, v0.y), Vec2f(v1.x, v1.y), Vec2f(v2.x, v2.y));
-
-    for (int i = 0; i < raster_triangle.size(); i++)
-    {
-        TrianglePixel pixel = raster_triangle[i];
-        float interpolated_depth = interpolate_barycentric_f(v0.z, v1.z, v2.z, pixel.barycentric);
-
-        if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
-        {
-            Vec2f interpolated_uv = clampedVec2f(interpolate_barycentric_vec2f(uv0, uv1, uv2, pixel.barycentric), 0.0f, 1.0f);
-            Vec2i texture_pixel = Vec2i((texture->get_width() - 1) * interpolated_uv.x, (texture->get_height() - 1) * interpolated_uv.y);
-            Vec3f texture_color = to_vec3fcolor(texture->get(texture_pixel.x, texture_pixel.y));
-
-            // Gouraud shading
-            Vec3f interpolated_light = interpolate_barycentric_vec3f(light0, light1, light2, pixel.barycentric);
+            Vec3f interpolated_light = interpolate_barycentric_vec3f(v0.shading, v1.shading, v2.shading, pixel.barycentric);
             interpolated_light = clampedVec3f(interpolated_light, 0.0f, 1.0f); // just to make sure its [0,1]
             Vec3f shaded_texture = Vec3f(texture_color.x * interpolated_light.x, texture_color.y * interpolated_light.y, texture_color.z * interpolated_light.z);
 
@@ -466,21 +465,20 @@ void draw_triangle_gouraud(Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0, Vec2f uv1, V
 }
 
 
-// Device coordinates
-void draw_triangle_phong(Vec3f v0, Vec3f v1, Vec3f v2, Vec3f v0_cam, Vec3f v1_cam, Vec3f v2_cam, Vec3f n0_cam, Vec3f n1_cam, Vec3f n2_cam, Vec2f uv0, Vec2f uv1, Vec2f uv2, TGAImage* texture, std::vector<Light*> lights, Mat4x4f camera, Mat3x3f camera_inv_trans, Material* mat)
+void draw_triangle(Vertex v0, Vertex v1, Vertex v2, TGAImage* texture, std::vector<Light*> lights, Mat4x4f camera, Mat3x3f camera_inv_trans, Material* mat)
 {
-    std::vector<TrianglePixel> raster_triangle = rasterize_triangle(Vec2f(v0.x, v0.y), Vec2f(v1.x, v1.y), Vec2f(v2.x, v2.y));
+    std::vector<TrianglePixel> raster_triangle = rasterize_triangle(Vec2f(v0.pos_device.x, v0.pos_device.y), Vec2f(v1.pos_device.x, v1.pos_device.y), Vec2f(v2.pos_device.x, v2.pos_device.y));
 
     for (int i = 0; i < raster_triangle.size(); i++)
     {
         TrianglePixel pixel = raster_triangle[i];
-        float interpolated_depth = interpolate_barycentric_f(v0.z, v1.z, v2.z, pixel.barycentric);
+        float interpolated_depth = interpolate_barycentric_f(v0.pos_device.z, v1.pos_device.z, v2.pos_device.z, pixel.barycentric);
 
         if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
         {
-            Vec2f interpolated_uv = clampedVec2f(interpolate_barycentric_vec2f(uv0, uv1, uv2, pixel.barycentric), 0.0f, 1.0f);
-            Vec3f interpolated_point = interpolate_barycentric_vec3f(v0_cam, v1_cam, v2_cam, pixel.barycentric); // camera
-            Vec3f interpolated_normal = interpolate_barycentric_vec3f(n0_cam, n1_cam, n2_cam, pixel.barycentric).normalize(); // camera space
+            Vec2f interpolated_uv = clampedVec2f(interpolate_barycentric_vec2f(v0.uv, v1.uv, v2.uv, pixel.barycentric), 0.0f, 1.0f);
+            Vec3f interpolated_point = interpolate_barycentric_vec3f(v0.pos_camera, v1.pos_camera, v2.pos_camera, pixel.barycentric); // camera
+            Vec3f interpolated_normal = interpolate_barycentric_vec3f(v0.norm_camera, v1.norm_camera, v2.norm_camera, pixel.barycentric).normalize(); // camera space
 
             Vec3f light (0.0f);
             for (int l = 0; l < lights.size(); l++)
