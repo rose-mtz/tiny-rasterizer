@@ -215,7 +215,10 @@ int main()
                 {
                     draw_triangle_phong(v0_device, v1_device, v2_device, v0_camera.xyz(), v1_camera.xyz(), v2_camera.xyz(), n0_camera, n1_camera, n2_camera, uv0, uv1, uv2, obj->texture, scene.lights, camera, camera_inv_trans, obj->mat);
                 }
-                // TODO: else no shading
+                else // shading none
+                {
+                    draw_triangle_flat(v0_device, v1_device, v2_device, uv0, uv1, uv2, obj->texture, Vec3f(1.0f, 1.0f, 1.0f));
+                }
             }
 
             if (scene.wireframe_mode)

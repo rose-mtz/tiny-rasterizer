@@ -5,10 +5,10 @@ Texture
     filename ./obj/african_head_diffuse.tga
 
 Material
-    k_d 0.8
-    k_s 0.1
-    k_a 0.1
-    shininess 10
+    k_d 0.0
+    k_s 1.0
+    k_a 0.0
+    shininess 1
 
 Camera
     type     perspective
@@ -29,7 +29,7 @@ Light
     direction 1.0 0.0 -1.0
     color 1.0 1.0 1.0
     position -2.0 0.0 2.0
-    intensity 4.0
+    intensity 2.5
 
 Background
     color 0.05 0.05 0.05
