@@ -22,7 +22,7 @@ Object3D
     material 0
     position 0.0 0.0 0.0
     scale 1.0
-    shading none
+    shading flat
 
 Light
     type point
@@ -35,5 +35,5 @@ Background
     color 0.05 0.05 0.05
 
 Modes
-    wireframe false
+    wireframe true
     fill true

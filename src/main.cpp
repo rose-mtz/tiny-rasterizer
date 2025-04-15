@@ -104,9 +104,8 @@ int main()
     {
         Object3D* obj = scene.objects[i];
 
-        // World
+        // Transformation matrices
         Mat4x4f world = get_transformation(obj->pos, obj->scale);
-
         Mat4x4f camera_world = camera * world;
         Mat3x3f camera_world_inv_trans = camera_world.truncated().inv().transposed();
         Mat3x3f camera_inv_trans = camera.truncated().inv().transposed();
@@ -114,58 +113,50 @@ int main()
         for (int f = 0; f < obj->model->nfaces(); f++)
         {
             std::vector<int> face = obj->model->face(f);
-            Vec3f v0 = obj->model->vert(face[0]);
-            Vec3f v1 = obj->model->vert(face[3]);
-            Vec3f v2 = obj->model->vert(face[6]);
-            Vec3f n0 = obj->model->norm(face[2]);
-            Vec3f n1 = obj->model->norm(face[5]);
-            Vec3f n2 = obj->model->norm(face[8]);
-            Vec2f uv0 = obj->model->uv(face[1]);
-            Vec2f uv1 = obj->model->uv(face[4]);
-            Vec2f uv2 = obj->model->uv(face[7]);
+            Vertex vertex_0, vertex_1, vertex_2;
+            
+            // Set uvs
+            vertex_0.uv = obj->model->uv(face[1]);
+            vertex_1.uv = obj->model->uv(face[4]);
+            vertex_2.uv = obj->model->uv(face[7]);
 
-            Vec4f v0_camera = camera_world * Vec4f(v0, 1.0f);
-            Vec4f v1_camera = camera_world * Vec4f(v1, 1.0f);
-            Vec4f v2_camera = camera_world * Vec4f(v2, 1.0f);
+            // Set position in camera space
+            vertex_0.pos_camera = (camera_world * Vec4f(obj->model->vert(face[0]), 1.0f)).xyz();
+            vertex_1.pos_camera = (camera_world * Vec4f(obj->model->vert(face[3]), 1.0f)).xyz();
+            vertex_2.pos_camera = (camera_world * Vec4f(obj->model->vert(face[6]), 1.0f)).xyz();
 
-            Vec3f n0_camera = (camera_world_inv_trans * n0).normalize();
-            Vec3f n1_camera = (camera_world_inv_trans * n1).normalize();
-            Vec3f n2_camera = (camera_world_inv_trans * n2).normalize();
+            // Set normals in camera space
+            vertex_0.norm_camera = (camera_world_inv_trans * obj->model->norm(face[2])).normalize();
+            vertex_1.norm_camera = (camera_world_inv_trans * obj->model->norm(face[5])).normalize();
+            vertex_2.norm_camera = (camera_world_inv_trans * obj->model->norm(face[8])).normalize();
 
             // Culling: back facing triangle check
             // NOTE: some triangles that should be culled will not be culled
             //       but (hopefully) no triangle that can be seen (i.e not supposed to be culled)
             //       will not be culled
-            Vec3f triangle_normal = get_triangle_normal(v0_camera.xyz(), v1_camera.xyz(), v2_camera.xyz()).normalize();
+            Vec3f triangle_normal = get_triangle_normal(vertex_0.pos_camera, vertex_1.pos_camera, vertex_2.pos_camera).normalize();
             if (triangle_normal * Vec3f(0.0f, 0.0f, 1.0f) <= -0.25f) continue;
 
-            Vec4f v0_projected = projection * v0_camera;
-            Vec4f v1_projected = projection * v1_camera;
-            Vec4f v2_projected = projection * v2_camera;
-            
-            // Homogenize-ish
+            // Project coordinates to virtual screen
+            Vec4f v0_projected = projection * Vec4f(vertex_0.pos_camera, 1.0f);
+            Vec4f v1_projected = projection * Vec4f(vertex_1.pos_camera, 1.0f);
+            Vec4f v2_projected = projection * Vec4f(vertex_2.pos_camera, 1.0f);
+            // Homogenize-ish (z is not homogenized, stays same value as in camera space)
             Vec3f v0_virtual = Vec3f(v0_projected.x / std::abs(v0_projected.w), v0_projected.y / std::abs(v0_projected.w), v0_projected.z);
             Vec3f v1_virtual = Vec3f(v1_projected.x / std::abs(v1_projected.w), v1_projected.y / std::abs(v1_projected.w), v1_projected.z);
             Vec3f v2_virtual = Vec3f(v2_projected.x / std::abs(v2_projected.w), v2_projected.y / std::abs(v2_projected.w), v2_projected.z);
 
-            Vec3f v0_device = device * Vec3f(v0_virtual.x, v0_virtual.y, 1.0f); v0_device.z = v0_virtual.z; // keep depth
-            Vec3f v1_device = device * Vec3f(v1_virtual.x, v1_virtual.y, 1.0f); v1_device.z = v1_virtual.z;
-            Vec3f v2_device = device * Vec3f(v2_virtual.x, v2_virtual.y, 1.0f); v2_device.z = v2_virtual.z;
+            // Set position in device space
+            vertex_0.pos_device = device * Vec3f(v0_virtual.x, v0_virtual.y, 1.0f); vertex_0.pos_device.z = v0_virtual.z; // keep depth
+            vertex_1.pos_device = device * Vec3f(v1_virtual.x, v1_virtual.y, 1.0f); vertex_1.pos_device.z = v1_virtual.z;
+            vertex_2.pos_device = device * Vec3f(v2_virtual.x, v2_virtual.y, 1.0f); vertex_2.pos_device.z = v2_virtual.z;
 
-            // Vec3f rnd_color;
-            // rnd_color.x = (std::rand() % 101) / 100.0f;
-            // rnd_color.y = (std::rand() % 101) / 100.0f;
-            // rnd_color.z = (std::rand() % 101) / 100.0f;
+            // Set shading
 
-            // Flat & gouraud shading
-
-            Vec3f light_flat (0.0f);
-            Vec3f light_gouraud_a (0.0f);
-            Vec3f light_gouraud_b (0.0f);
-            Vec3f light_gouraud_c (0.0f);
             if (obj->shading == "flat")
             {
-                Vec3f triangle_center = interpolate_barycentric_vec3f(v0_camera.xyz(), v1_camera.xyz(), v2_camera.xyz(), Vec3f(1.0f / 3.0f));
+                Vec3f light_flat (0.0f);
+                Vec3f triangle_center = interpolate_barycentric_vec3f(vertex_0.pos_camera, vertex_1.pos_camera, vertex_2.pos_camera, Vec3f(1.0f / 3.0f));
                 for (int l = 0; l < scene.lights.size(); l++)
                 {
                     // World --> camera
@@ -180,9 +171,17 @@ int main()
                 }
                 
                 light_flat = clampedVec3f(light_flat, 0.0f, 1.0f);
+
+                vertex_0.shading = light_flat;
+                vertex_1.shading = light_flat;
+                vertex_2.shading = light_flat;
             }
             else if (obj->shading == "gouraud")
             {
+                Vec3f light_gouraud_a (0.0f);
+                Vec3f light_gouraud_b (0.0f);
+                Vec3f light_gouraud_c (0.0f);
+
                 for (int l = 0; l < scene.lights.size(); l++)
                 {
                     // World --> camera
@@ -191,57 +190,39 @@ int main()
                     light_camera.direction = (camera_inv_trans * light_camera.direction).normalize();
 
                     // Shading done in camera space
-                    float shading_a = calculate_shading(v0_camera.xyz(), n0_camera, *obj->mat, light_camera, Vec3f(0.0f));
-                    float shading_b = calculate_shading(v1_camera.xyz(), n1_camera, *obj->mat, light_camera, Vec3f(0.0f));
-                    float shading_c = calculate_shading(v2_camera.xyz(), n2_camera, *obj->mat, light_camera, Vec3f(0.0f));
+                    float shading_a = calculate_shading(vertex_0.pos_camera, vertex_0.norm_camera, *obj->mat, light_camera, Vec3f(0.0f));
+                    float shading_b = calculate_shading(vertex_1.pos_camera, vertex_1.norm_camera, *obj->mat, light_camera, Vec3f(0.0f));
+                    float shading_c = calculate_shading(vertex_2.pos_camera, vertex_2.norm_camera, *obj->mat, light_camera, Vec3f(0.0f));
                     Vec3f light_color = light_camera.color;
                     light_gouraud_a = light_gouraud_a + Vec3f(light_color.x * shading_a, light_color.y * shading_a, light_color.z * shading_a);
                     light_gouraud_b = light_gouraud_b + Vec3f(light_color.x * shading_b, light_color.y * shading_b, light_color.z * shading_b);
                     light_gouraud_c = light_gouraud_c + Vec3f(light_color.x * shading_c, light_color.y * shading_c, light_color.z * shading_c);
                 }
 
-                light_gouraud_a = clampedVec3f(light_gouraud_a, 0.0f, 1.0f);
-                light_gouraud_b = clampedVec3f(light_gouraud_b, 0.0f, 1.0f);
-                light_gouraud_c = clampedVec3f(light_gouraud_c, 0.0f, 1.0f);
+                vertex_0.shading = clampedVec3f(light_gouraud_a, 0.0f, 1.0f);
+                vertex_1.shading = clampedVec3f(light_gouraud_b, 0.0f, 1.0f);
+                vertex_2.shading = clampedVec3f(light_gouraud_c, 0.0f, 1.0f);
+            }
+            else if (obj->shading == "none")
+            {
+                vertex_0.shading = Vec3f(1.0f, 1.0f, 1.0f);
+                vertex_1.shading = Vec3f(1.0f, 1.0f, 1.0f);
+                vertex_2.shading = Vec3f(1.0f, 1.0f, 1.0f);
             }
 
             // NOTE: Barycentric coordinates will be distorted by the non-affine transformation perspective projection
             //       So, unless they are re-adjusted for this distortion, they will be wrong
-            //       I haven't noticed any problems caused by this, so for now I'll stick with this not correcting them
+            //       I haven't noticed any problems caused by this, so for now I'll stick with this (not correcting them)
 
             if (scene.fill_mode)
             {
-                if (obj->shading == "flat")
+                if (obj->shading == "phong")
                 {
-                    Vertex vertex0 = {.pos_device = v0_device, .uv = uv0, .shading = light_flat};
-                    Vertex vertex1 = {.pos_device = v1_device, .uv = uv1, .shading = light_flat};
-                    Vertex vertex2 = {.pos_device = v2_device, .uv = uv2, .shading = light_flat};
-
-                    draw_triangle(vertex0, vertex1, vertex2, obj->texture);
+                    draw_triangle(vertex_0, vertex_1, vertex_2, obj->texture, scene.lights, camera, camera_inv_trans, obj->mat);
                 }
-                else if (obj->shading == "gouraud")
+                else // shading is flat, gouraud, or none
                 {
-                    Vertex vertex0 = {.pos_device = v0_device, .uv = uv0, .shading = light_gouraud_a};
-                    Vertex vertex1 = {.pos_device = v1_device, .uv = uv1, .shading = light_gouraud_b};
-                    Vertex vertex2 = {.pos_device = v2_device, .uv = uv2, .shading = light_gouraud_c};
-
-                    draw_triangle(vertex0, vertex1, vertex2, obj->texture);
-                }
-                else if (obj->shading == "phong")
-                {
-                    Vertex vertex0 = {.pos_device = v0_device, .pos_camera = v0_camera.xyz(), .norm_camera = n0_camera, .uv = uv0, .shading = light_gouraud_a};
-                    Vertex vertex1 = {.pos_device = v1_device, .pos_camera = v1_camera.xyz(), .norm_camera = n1_camera, .uv = uv1, .shading = light_gouraud_b};
-                    Vertex vertex2 = {.pos_device = v2_device, .pos_camera = v2_camera.xyz(), .norm_camera = n2_camera, .uv = uv2, .shading = light_gouraud_c};
-
-                    draw_triangle(vertex0, vertex1, vertex2, obj->texture, scene.lights, camera, camera_inv_trans, obj->mat);
-                }
-                else // shading none
-                {
-                    Vertex vertex0 = {.pos_device = v0_device, .uv = uv0, .shading = Vec3f(1.0f, 1.0f, 1.0f)};
-                    Vertex vertex1 = {.pos_device = v1_device, .uv = uv1, .shading = Vec3f(1.0f, 1.0f, 1.0f)};
-                    Vertex vertex2 = {.pos_device = v2_device, .uv = uv2, .shading = Vec3f(1.0f, 1.0f, 1.0f)};
-
-                    draw_triangle(vertex0, vertex1, vertex2, obj->texture);
+                    draw_triangle(vertex_0, vertex_1, vertex_2, obj->texture);
                 }
             }
 
@@ -250,9 +231,9 @@ int main()
                 // Wire frame render
                 float line_thickness = 1.0f;
                 float wireframe_epsilon = 0.01f; // for preventing z-fighting with triangle
-                draw_line(Vec3f(v0_device.x, v0_device.y, v0_device.z + wireframe_epsilon), Vec3f(v1_device.x, v1_device.y, v1_device.z + wireframe_epsilon), line_thickness, RED);
-                draw_line(Vec3f(v1_device.x, v1_device.y, v1_device.z + wireframe_epsilon), Vec3f(v2_device.x, v2_device.y, v2_device.z + wireframe_epsilon), line_thickness, RED);
-                draw_line(Vec3f(v2_device.x, v2_device.y, v2_device.z + wireframe_epsilon), Vec3f(v0_device.x, v0_device.y, v0_device.z + wireframe_epsilon), line_thickness, RED);
+                draw_line(Vec3f(vertex_0.pos_device.x, vertex_0.pos_device.y, vertex_0.pos_device.z + wireframe_epsilon), Vec3f(vertex_1.pos_device.x, vertex_1.pos_device.y, vertex_1.pos_device.z + wireframe_epsilon), line_thickness, RED);
+                draw_line(Vec3f(vertex_1.pos_device.x, vertex_1.pos_device.y, vertex_1.pos_device.z + wireframe_epsilon), Vec3f(vertex_2.pos_device.x, vertex_2.pos_device.y, vertex_2.pos_device.z + wireframe_epsilon), line_thickness, RED);
+                draw_line(Vec3f(vertex_2.pos_device.x, vertex_2.pos_device.y, vertex_2.pos_device.z + wireframe_epsilon), Vec3f(vertex_0.pos_device.x, vertex_0.pos_device.y, vertex_0.pos_device.z + wireframe_epsilon), line_thickness, RED);
             }
         }
     }
@@ -436,7 +417,7 @@ void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color)
 }
 
 
-// Phong shading
+// Gouraud shading
 void draw_triangle(Vertex v0, Vertex v1, Vertex v2, TGAImage* texture)
 {
     // TODO: if texture == nullptr then use vertex color
@@ -465,6 +446,7 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, TGAImage* texture)
 }
 
 
+// Phong shading
 void draw_triangle(Vertex v0, Vertex v1, Vertex v2, TGAImage* texture, std::vector<Light*> lights, Mat4x4f camera, Mat3x3f camera_inv_trans, Material* mat)
 {
     std::vector<TrianglePixel> raster_triangle = rasterize_triangle(Vec2f(v0.pos_device.x, v0.pos_device.y), Vec2f(v1.pos_device.x, v1.pos_device.y), Vec2f(v2.pos_device.x, v2.pos_device.y));
