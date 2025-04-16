@@ -54,7 +54,7 @@ template <class t> struct Vec3
 	// Constructors
 
 	Vec3() : x(0), y(0), z(0) {}
-	Vec3(t _s) : x(_s), y(_s), z(_s) {}
+	Vec3(t _s) : x(_s), y(_s), z(_s) {} // WARNING: will implicitly cast float to Vec3f
 	Vec3(t _x, t _y, t _z) : x(_x), y(_y), z(_z) {}
 
 	// Operators
@@ -308,6 +308,7 @@ Mat4x4f get_transformation(Vec3f pos, float scale);
 Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up);
 
 float power(float a, int b);
+Vec3f component_wise_product(Vec3f a, Vec3f b);
 
 Vec3f interpolate_barycentric_vec3f(Vec3f a, Vec3f b, Vec3f c, Vec3f weights);
 Vec2f interpolate_barycentric_vec2f(Vec2f a, Vec2f b, Vec2f c, Vec3f weights);

@@ -477,13 +477,11 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, FILL_MODE fill, TGAImage* te
         if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
         {
             Vec3f interpolated_light = interpolate_barycentric_vec3f(v0.shading, v1.shading, v2.shading, pixel.barycentric);
-            interpolated_light = clampedVec3f(interpolated_light, 0.0f, 1.0f); // just to make sure its [0,1]
 
             Vec3f pixel_color;
             if (fill == TEXTURE)
             {
-                assert(texture != nullptr);
-                Vec2f interpolated_uv = clampedVec2f(interpolate_barycentric_vec2f(v0.uv, v1.uv, v2.uv, pixel.barycentric), 0.0f, 1.0f);
+                Vec2f interpolated_uv = interpolate_barycentric_vec2f(v0.uv, v1.uv, v2.uv, pixel.barycentric);
                 Vec2i texture_pixel = Vec2i((texture->get_width() - 1) * interpolated_uv.x, (texture->get_height() - 1) * interpolated_uv.y);
                 pixel_color = to_vec3fcolor(texture->get(texture_pixel.x, texture_pixel.y));
             }
@@ -497,7 +495,7 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, FILL_MODE fill, TGAImage* te
                 pixel_color = normal_colored(interpolated_normal);
             }
 
-            Vec3f shaded_pixel_color = Vec3f(pixel_color.x * interpolated_light.x, pixel_color.y * interpolated_light.y, pixel_color.z * interpolated_light.z);
+            Vec3f shaded_pixel_color = component_wise_product(pixel_color, interpolated_light);
             image->set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_pixel_color));
             z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
         }
@@ -517,13 +515,15 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, 
 
         if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
         {
-            Vec2f interpolated_uv = clampedVec2f(interpolate_barycentric_vec2f(v0.uv, v1.uv, v2.uv, pixel.barycentric), 0.0f, 1.0f);
+            Vec2f interpolated_uv = interpolate_barycentric_vec2f(v0.uv, v1.uv, v2.uv, pixel.barycentric);
             Vec3f interpolated_point = interpolate_barycentric_vec3f(v0.pos_camera, v1.pos_camera, v2.pos_camera, pixel.barycentric); // camera
             Vec3f interpolated_normal = interpolate_barycentric_vec3f(v0.norm_camera, v1.norm_camera, v2.norm_camera, pixel.barycentric).normalize(); // camera space
 
-            Vec3f light (0.0f);
+            Vec3f total_light (0.0f);
             for (int l = 0; l < lights.size(); l++)
             {
+                // TODO: do something better, maybe let user handle these transformations
+
                 // World --> camera
                 Light light_camera = *lights[l];
                 light_camera.pos = (camera * Vec4f(light_camera.pos, 1.0f)).xyz();
@@ -532,14 +532,13 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, 
                 // Shading done in camera space
                 float shading = calculate_shading(interpolated_point, interpolated_normal, *mat, light_camera, Vec3f(0.0f));
                 Vec3f light_color = light_camera.color;
-                light = light + Vec3f(light_color.x * shading, light_color.y * shading, light_color.z * shading);
+                total_light = total_light + component_wise_product(light_color, Vec3f(shading));
             }
-            light = clampedVec3f(light, 0.0f, 1.0f);
+            total_light = clampedVec3f(total_light, 0.0f, 1.0f);
 
             Vec3f pixel_color;
             if (fill == TEXTURE)
             {
-                assert(texture != nullptr);
                 Vec2i texture_pixel = Vec2i((texture->get_width() - 1) * interpolated_uv.x, (texture->get_height() - 1) * interpolated_uv.y);
                 pixel_color = to_vec3fcolor(texture->get(texture_pixel.x, texture_pixel.y));
 
@@ -554,7 +553,7 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, 
                 pixel_color = normal_colored(interpolated_normal);
             }
 
-            Vec3f shaded_pixel_color = Vec3f(pixel_color.x * light.x, pixel_color.y * light.y, pixel_color.z * light.z);
+            Vec3f shaded_pixel_color = component_wise_product(pixel_color, total_light);
             image->set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_pixel_color));
             z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
         }

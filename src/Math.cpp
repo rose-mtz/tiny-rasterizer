@@ -125,3 +125,9 @@ float interpolate_barycentric_f(float a, float b, float c, Vec3f weights)
 {
     return (a * weights.x) + (b * weights.y) + (c * weights.z);
 }
+
+
+Vec3f component_wise_product(Vec3f a, Vec3f b)
+{
+    return Vec3f(a.x * b.x, a.y * b.y, a.z * b.z);
+}
