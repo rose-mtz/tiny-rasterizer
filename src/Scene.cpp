@@ -112,6 +112,10 @@ Object3D* parse_object3d(std::ifstream& in)
     Vec3f position = Vec3f(0.0f, 0.0f, 0.0f);
     float scale = 1.0f;
     std::string shading = "flat";
+    bool colored_triangle_normals_mode = false;
+    bool colored_vertex_normals_mode = false;
+    bool wireframe_mode = false;
+    bool fill_mode = false;
 
     std::string line; std::getline(in, line);
     while (line.size() != 0) // blank line indicates end of attributes
@@ -150,6 +154,35 @@ Object3D* parse_object3d(std::ifstream& in)
             assert(iss >> shading);
             assert(shading == "flat" || shading == "gouraud" || shading == "phong" || shading == "none");
         }
+        else if (attribute == "modes")
+        {
+            // Flags turn on mode, else default is off
+            std::string mode;
+            while (iss >> mode)
+            {
+                if (mode == "fill")
+                {
+                    fill_mode = true;
+                }
+                else if (mode == "wireframe")
+                {
+                    wireframe_mode = true;
+                }
+                else if (mode == "colored_triangle_normals")
+                {
+                    colored_triangle_normals_mode = true;
+                }
+                else if (mode == "colored_vertex_normals")
+                {
+                    colored_vertex_normals_mode = true;
+                }
+                else
+                {
+                    std::cout << "Error:: unkown mode value " << mode << '\n';
+                    assert(false);
+                }
+            }
+        }
         else
         {
             std::cout << "Error:: unkown Object3D attribute " << attribute << '\n';
@@ -170,6 +203,10 @@ Object3D* parse_object3d(std::ifstream& in)
     obj->shading = shading;
     obj->pos = position;
     obj->scale = scale;
+    obj->colored_triangle_normals_mode = colored_triangle_normals_mode;
+    obj->colored_vertex_normals_mode = colored_vertex_normals_mode;
+    obj->wireframe_mode = wireframe_mode;
+    obj->fill_mode = fill_mode;
 
     return obj;
 }
@@ -332,41 +369,6 @@ Scene::Scene(const char* filename)
             std::istringstream iss(line.c_str());
             std::string attribute; iss >> attribute; assert(attribute == "color");
             this->background_color = parse_vec3f(iss);
-        }
-        else if (type == "Modes")
-        {
-            bool _wireframe = false;
-            bool _fill = true;
-
-            std::string line; std::getline(in, line);
-            while (line.size() != 0) // blank line indicates end of attributes
-            {
-                std::istringstream iss(line.c_str());
-                std::string attribute; iss >> attribute;
-
-                if (attribute == "wireframe")
-                {
-                    _wireframe = parse_bool(iss);
-                }
-                else if (attribute == "fill")
-                {
-                    _fill = parse_bool(iss);
-                }
-                else
-                {
-                    std::cout << "Error:: unkown Modes attribute " << attribute << '\n';
-                    assert(false);
-                }
-
-                if (in.eof()) // was last line of file
-                {
-                    break;
-                }
-                std::getline(in, line); // get next line
-            }
-
-            this->wireframe_mode = _wireframe;
-            this->fill_mode = _fill;
         }
         else if (line.size() != 0)
         {

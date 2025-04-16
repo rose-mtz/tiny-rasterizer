@@ -8,12 +8,6 @@
 #include <vector>
 
 
-/**
- * I really should just make this shit into a class.
- * And subclasses! KISS, later.
- */
-
-
 struct Material 
 {
     float k_d; // diffuse
@@ -31,6 +25,12 @@ struct Object3D
     std::string shading;
     Vec3f pos;
     float scale;
+
+    // Modes
+    bool colored_triangle_normals_mode;
+    bool colored_vertex_normals_mode;
+    bool wireframe_mode;
+    bool fill_mode;
 };
 
 
@@ -66,8 +66,6 @@ public:
     std::vector<Object3D*> objects;
     Camera* camera;
     Vec3f background_color;
-    bool wireframe_mode;
-    bool fill_mode;
 
     Scene(const char* filename);
     ~Scene();

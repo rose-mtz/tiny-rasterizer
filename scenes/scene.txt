@@ -6,9 +6,9 @@ Texture
 
 Material
     k_d 0.7
-    k_s 0.3
+    k_s 0.2
     k_a 0.0
-    shininess 10
+    shininess 20
 
 Camera
     type     perspective
@@ -22,7 +22,8 @@ Object3D
     material 0
     position 0.0 0.0 0.0
     scale 1.0
-    shading flat
+    shading phong
+    modes fill
 
 Light
     type point
@@ -33,7 +34,3 @@ Light
 
 Background
     color 0.05 0.05 0.05
-
-Modes
-    wireframe true
-    fill true
