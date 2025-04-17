@@ -170,7 +170,7 @@ int main()
             //       but (hopefully) no triangle that can be seen (i.e not supposed to be culled)
             //       will not be culled
             Vec3f triangle_normal = get_triangle_normal(vertex_0.pos_camera, vertex_1.pos_camera, vertex_2.pos_camera).normalize();
-            if (triangle_normal * Vec3f(0.0f, 0.0f, 1.0f) <= -0.25f) continue;
+            if (triangle_normal * Vec3f(0.0f, 0.0f, 1.0f) < -0.01f) continue;
 
             // Project coordinates to virtual screen
             Vec4f v0_projected = projection * Vec4f(vertex_0.pos_camera, 1.0f);

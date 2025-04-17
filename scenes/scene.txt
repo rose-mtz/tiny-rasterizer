@@ -5,9 +5,9 @@ Texture
     filename ./obj/african_head_diffuse.tga
 
 Material
-    k_d 0.7
+    k_d 0.0
     k_s 0.0
-    k_a 0.0
+    k_a 1.0
     shininess 10
 
 Camera
@@ -23,7 +23,7 @@ Object3D
     position 0.0 0.0 0.0
     scale 1.0
     shading phong
-    modes fill 
+    modes wireframe
 
 Light
     type point
@@ -33,7 +33,7 @@ Light
     intensity 4.5
 
 Image_Metadata
-    background_color 0.05 0.05 0.05
+    background_color 1.0 1.0 1.0
     aspect_ratio 1 1
     width 1000
-    supersample_factor 2
+    supersample_factor 1
