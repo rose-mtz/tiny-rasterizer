@@ -296,7 +296,7 @@ int main()
             if (obj->wireframe_mode)
             {
                 // Wire frame render
-                float line_thickness = 1.0f;
+                float line_thickness = 4.0f;
                 float wireframe_epsilon = 0.01f; // for preventing z-fighting with triangle
                 draw_line(Vec3f(vertex_0.pos_device.x, vertex_0.pos_device.y, vertex_0.pos_device.z + wireframe_epsilon), Vec3f(vertex_1.pos_device.x, vertex_1.pos_device.y, vertex_1.pos_device.z + wireframe_epsilon), line_thickness, RED);
                 draw_line(Vec3f(vertex_1.pos_device.x, vertex_1.pos_device.y, vertex_1.pos_device.z + wireframe_epsilon), Vec3f(vertex_2.pos_device.x, vertex_2.pos_device.y, vertex_2.pos_device.z + wireframe_epsilon), line_thickness, RED);
@@ -374,17 +374,16 @@ TGAColor to_tgacolor(Vec3f color)
 // Thickness is in pixels
 std::vector<LinePixel> rasterize_line(Vec2f p0, Vec2f p1, float thickness)
 {   
-    // KNOWN BUG: bounding box clips thickness.
-
     std::vector<LinePixel> pixels;
 
-    // Bounding box
+    // Bounding box (includes thickness)
     Vec2i min, max;
-    min.x = std::min(p0.x, p1.x);
-    min.y = std::min(p0.y, p1.y);
-    max.x = std::max(p0.x, p1.x);
-    max.y = std::max(p0.y, p1.y);
-    // Clip bounding box
+    min.x = std::min(p0.x, p1.x) - thickness;
+    min.y = std::min(p0.y, p1.y) - thickness;
+    max.x = std::max(p0.x, p1.x) + thickness;
+    max.y = std::max(p0.y, p1.y) + thickness;
+
+    // Clip bounding box to device screen
     min.x = std::max(min.x, 0);
     min.y = std::max(min.y, 0);
     max.x = std::min(max.x, supersample_device_width - 1);
@@ -400,6 +399,12 @@ std::vector<LinePixel> rasterize_line(Vec2f p0, Vec2f p1, float thickness)
         {
             Vec2f p (col + 0.5f, row + 0.5f);
             float projected_distance = (p - p0) * dir;
+
+            if (projected_distance < 0.0f || projected_distance > line_length)
+            {
+                continue;
+            }
+
             float perp_distance = ((p - p0) - (dir * projected_distance)).length();
             float t = projected_distance / line_length;
 
