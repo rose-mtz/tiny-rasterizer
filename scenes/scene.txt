@@ -14,7 +14,7 @@ Camera
     type     perspective
     position -2.0 0.0 2.0
     lookAt   0.0 0.0 0.0
-    zoom     1.2
+    zoom     2.5
 
 Object3D
     model 0
@@ -32,5 +32,8 @@ Light
     position -2.0 0.0 2.0
     intensity 4.5
 
-Background
-    color 0.05 0.05 0.05
+Image_Metadata
+    background_color 0.05 0.05 0.05
+    aspect_ratio 1 1
+    width 1000
+    supersample_factor 2

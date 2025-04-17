@@ -17,14 +17,15 @@ const TGAColor TGA_WHITE = TGAColor(255, 255, 255, 255);
 const TGAColor TGA_RED   = TGAColor(255, 0,   0,   255);
 const TGAColor TGA_GREEN = TGAColor(0,   255, 0,   255);
 
-int supersample_factor = 4;
-const int   device_width = 1000;
-const int   device_height = 1000;
-const int   supersample_device_width  = device_width * supersample_factor;
-const int   supersample_device_height = device_height * supersample_factor;
+int supersample_factor;
+int device_width;
+int device_height;
+int supersample_device_width;
+int supersample_device_height;
+float aspect_ratio;
 
-const float virtual_screen_width = 0.50;
-const float virtual_screen_height = 0.50;
+float virtual_screen_width;
+float virtual_screen_height;
 
 float** z_buffer = nullptr;
 Vec3f** color_buffer = nullptr;
@@ -70,6 +71,14 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, 
 int main()
 {
     Scene scene ("scenes/scene.txt");
+    supersample_factor = scene.metadata->supersample_factor;
+    device_width = scene.metadata->width_pixels;
+    device_height = (scene.metadata->aspect_ratio.y * device_width) / scene.metadata->aspect_ratio.x;
+    aspect_ratio = ((float) device_width) / ((float) device_height); // the one true aspect ratio
+    supersample_device_width = device_width * supersample_factor;
+    supersample_device_height = device_height * supersample_factor;
+    virtual_screen_height = 1.0f;
+    virtual_screen_width = aspect_ratio;
     
     z_buffer = new float*[supersample_device_height];
     for (int i = 0; i < supersample_device_height; i++)
@@ -87,7 +96,7 @@ int main()
         color_buffer[i] = new Vec3f[supersample_device_width];
         for (int j = 0; j < supersample_device_width; j++)
         {
-            color_buffer[i][j] = scene.background_color;
+            color_buffer[i][j] = scene.metadata->background_color;
         }
     }
 

@@ -28,6 +28,60 @@ bool parse_bool(std::istringstream& iss)
 }
 
 
+ImageMetadata* parse_image_metadata(std::ifstream& in)
+{
+    // Defaults
+    Vec3f background_color = Vec3f(0.0f);
+    Vec2i aspect_ratio = Vec2i(1, 1);
+    int width_pixels = 500;
+    int supersample_factor = 1;
+
+    std::string line; std::getline(in, line);
+    while (line.size() != 0) // Empty line indicates end of attributes
+    {
+        std::istringstream iss(line.c_str());
+        std::string attribute; iss >> attribute;
+
+        if (attribute == "background_color")
+        {
+            background_color = parse_vec3f(iss);
+        }
+        else if (attribute == "aspect_ratio")
+        {
+            assert(iss >> aspect_ratio.x);
+            assert(iss >> aspect_ratio.y);
+        }
+        else if (attribute == "width")
+        {
+            assert(iss >> width_pixels);
+        }
+        else if (attribute == "supersample_factor")
+        {
+            assert(iss >> supersample_factor);
+        }
+        else
+        {
+            std::cout << "Error:: unkown Image_Metadata attribute " << attribute << '\n';
+            assert(false);
+        }
+
+        if (in.eof()) // was last line of file
+        {
+            break;
+        }
+        std::getline(in, line); // get next line
+    }
+
+    ImageMetadata* metadata = new ImageMetadata();
+    metadata->background_color = background_color;
+    metadata->aspect_ratio = aspect_ratio;
+    metadata->width_pixels = width_pixels;
+    metadata->supersample_factor = supersample_factor;
+
+    return metadata;
+}
+
+
 Material* parse_material(std::ifstream& in)
 {
     float k_d = 1.0f;
@@ -363,12 +417,9 @@ Scene::Scene(const char* filename)
         {
             this->lights.push_back(parse_light(in));
         }
-        else if (type == "Background")
+        else if (type == "Image_Metadata")
         {
-            std::string line; std::getline(in, line);
-            std::istringstream iss(line.c_str());
-            std::string attribute; iss >> attribute; assert(attribute == "color");
-            this->background_color = parse_vec3f(iss);
+            this->metadata = parse_image_metadata(in);
         }
         else if (line.size() != 0)
         {

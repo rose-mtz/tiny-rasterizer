@@ -8,6 +8,15 @@
 #include <vector>
 
 
+struct ImageMetadata
+{
+    Vec3f background_color;
+    Vec2i aspect_ratio;
+    int width_pixels;
+    int supersample_factor;
+};
+
+
 struct Material 
 {
     float k_d; // diffuse
@@ -65,7 +74,7 @@ public:
     std::vector<Light*> lights;
     std::vector<Object3D*> objects;
     Camera* camera;
-    Vec3f background_color;
+    ImageMetadata* metadata;
 
     Scene(const char* filename);
     ~Scene();
