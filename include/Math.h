@@ -54,7 +54,7 @@ template <class t> struct Vec3
 	// Constructors
 
 	Vec3() : x(0), y(0), z(0) {}
-	Vec3(t _s) : x(_s), y(_s), z(_s) {} // WARNING: will implicitly cast float to Vec3f
+	Vec3(t _s) : x(_s), y(_s), z(_s) {} // WARNING: will implicitly cast t to Vec3f
 	Vec3(t _x, t _y, t _z) : x(_x), y(_y), z(_z) {}
 
 	// Operators
@@ -62,7 +62,7 @@ template <class t> struct Vec3
 	inline Vec3<t> operator ^(const Vec3<t> &v) const { return Vec3<t>(y*v.z-z*v.y, z*v.x-x*v.z, x*v.y-y*v.x); }
 	inline Vec3<t> operator +(const Vec3<t> &v) const { return Vec3<t>(x+v.x, y+v.y, z+v.z); }
 	inline Vec3<t> operator -(const Vec3<t> &v) const { return Vec3<t>(x-v.x, y-v.y, z-v.z); }
-	inline Vec3<t> operator *(float f)          const { return Vec3<t>(x*f, y*f, z*f); }
+	inline Vec3<t> operator *(float f)          const { return Vec3<t>(x*f, y*f, z*f); } // should not have this operator causes bugs, do something about this!!!
 	inline t       operator *(const Vec3<t> &v) const { return x*v.x + y*v.y + z*v.z; }
 
 	// Methods
@@ -95,7 +95,7 @@ template <class t> struct Vec4
 
 	inline Vec4<t> operator +(const Vec4<t> &v) const { return Vec4<t>(x+v.x, y+v.y, z+v.z, w+v.w); }
 	inline Vec4<t> operator -(const Vec4<t> &v) const { return Vec4<t>(x-v.x, y-v.y, z-v.z, w-v.w); }
-	inline Vec4<t> operator *(float f)          const { return Vec4<t>(x*f, y*f, z*f, w*f); }
+	inline Vec4<t> operator *(float f)          const { return Vec4<t>(x*f, y*f, z*f, w*f); } // should not have this operator 
 
 	// Methods
 

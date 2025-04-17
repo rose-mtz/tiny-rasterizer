@@ -17,13 +17,17 @@ const TGAColor TGA_WHITE = TGAColor(255, 255, 255, 255);
 const TGAColor TGA_RED   = TGAColor(255, 0,   0,   255);
 const TGAColor TGA_GREEN = TGAColor(0,   255, 0,   255);
 
-const int   device_width  = 1000;
+int supersample_factor = 4;
+const int   device_width = 1000;
 const int   device_height = 1000;
+const int   supersample_device_width  = device_width * supersample_factor;
+const int   supersample_device_height = device_height * supersample_factor;
+
 const float virtual_screen_width = 0.50;
 const float virtual_screen_height = 0.50;
 
 float** z_buffer = nullptr;
-TGAImage* image = nullptr;
+Vec3f** color_buffer = nullptr;
 
 struct TrianglePixel
 {
@@ -66,19 +70,26 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, 
 int main()
 {
     Scene scene ("scenes/scene.txt");
-    image = new TGAImage(device_width, device_height, TGAImage::RGB);
-    image->fill(to_tgacolor(scene.background_color));
     
-    z_buffer = new float*[device_height];
-    for (int i = 0; i < device_height; i++)
+    z_buffer = new float*[supersample_device_height];
+    for (int i = 0; i < supersample_device_height; i++)
     {
-        z_buffer[i] = new float[device_width];
-        for (int j = 0; j < device_width; j++)
+        z_buffer[i] = new float[supersample_device_width];
+        for (int j = 0; j < supersample_device_width; j++)
         {
             z_buffer[i][j] = -std::numeric_limits<float>::max();
         }
     }
 
+    color_buffer = new Vec3f*[supersample_device_height];
+    for (int i = 0; i < supersample_device_height; i++)
+    {
+        color_buffer[i] = new Vec3f[supersample_device_width];
+        for (int j = 0; j < supersample_device_width; j++)
+        {
+            color_buffer[i][j] = scene.background_color;
+        }
+    }
 
     // Camera
     Vec3f up = Vec3f(0.0f, 1.0f, 0.0f); // should maybe refactor this out, move it ot the scene file
@@ -95,12 +106,12 @@ int main()
     }
 
     // Device
-    float virtual_scale_x = (device_width / virtual_screen_width) / 2.0f;
-    float virtual_scale_y = (device_height / virtual_screen_height) / 2.0f;
+    float virtual_scale_x = (supersample_device_width / virtual_screen_width) / 2.0f;
+    float virtual_scale_y = (supersample_device_height / virtual_screen_height) / 2.0f;
     Mat3x3f device (
         Vec3f(    virtual_scale_x,                 0.0f, 0.0f),
         Vec3f(               0.0f,      virtual_scale_y, 0.0f),
-        Vec3f(device_width / 2.0f, device_height / 2.0f, 1.0f)
+        Vec3f(supersample_device_width / 2.0f, supersample_device_height / 2.0f, 1.0f)
     ); // takes in homogenies virtual screen coords
 
 
@@ -285,8 +296,48 @@ int main()
         }
     }
 
-    image->flip_vertically(); // i want to have the origin at the left bottom corner of the image
-    image->write_tga_file("output.tga");
+    // Init. downsampled color buffer
+    Vec3f** downsampled_color_buffer = new Vec3f*[device_height];
+    for (int i = 0; i < device_height; i++)
+    {
+        downsampled_color_buffer[i] = new Vec3f[device_width];
+    }
+
+    // Downsample supersampled color buffer
+    for (int y = 0; y < device_height; y++)
+    {
+        for (int x = 0; x < device_width; x++)
+        {
+            Vec3f sum (0.0f);
+            int supersample_x = x * supersample_factor;
+            int supersample_y = y * supersample_factor;
+            for (int i = 0; i < supersample_factor * supersample_factor; i++)
+            {
+                sum = sum + color_buffer[supersample_y][supersample_x];
+
+                supersample_x += 1;
+                if (supersample_x % supersample_factor == 0)
+                {
+                    supersample_x = x * supersample_factor;
+                    supersample_y++;
+                }
+            }
+
+            Vec3f average = component_wise_product(sum, Vec3f(1.0f / (supersample_factor * supersample_factor))); 
+            downsampled_color_buffer[y][x] = average;
+        }
+    }
+
+    // Save image
+    TGAImage tga_image = TGAImage(device_width, device_height, TGAImage::RGB);
+    for (int y = 0; y < device_height; y++)
+    {
+        for (int x = 0; x < device_width; x++)
+        {
+            tga_image.set(x, (device_height - 1 - y), to_tgacolor(downsampled_color_buffer[y][x]));
+        }
+    }
+    tga_image.write_tga_file("output.tga");
 
     return 0;
 }
@@ -327,8 +378,8 @@ std::vector<LinePixel> rasterize_line(Vec2f p0, Vec2f p1, float thickness)
     // Clip bounding box
     min.x = std::max(min.x, 0);
     min.y = std::max(min.y, 0);
-    max.x = std::min(max.x, device_width - 1);
-    max.y = std::min(max.y, device_height - 1);
+    max.x = std::min(max.x, supersample_device_width - 1);
+    max.y = std::min(max.y, supersample_device_height - 1);
 
     Vec2f dir = Vec2f(p1.x - p0.x, p1.y - p0.y).normalize();
     float line_length = (p1 - p0).length();
@@ -370,8 +421,8 @@ std::vector<TrianglePixel> rasterize_triangle(Vec2f a, Vec2f b, Vec2f c)
     // Clip box to be within pixel grid
     min.x = std::max(min.x, 0);
     min.y = std::max(min.y, 0);
-    max.x = std::min(max.x, device_width - 1);
-    max.y = std::min(max.y, device_height - 1);
+    max.x = std::min(max.x, supersample_device_width - 1);
+    max.y = std::min(max.y, supersample_device_height - 1);
 
     Mat3x3f D (Vec3f(a.x, a.y, 1.0f), Vec3f(b.x, b.y, 1.0f), Vec3f(c.x, c.y, 1.0f));
     float determinant = D.determinant();
@@ -457,7 +508,7 @@ void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color)
 
         if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
         {
-            image->set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(color));
+            color_buffer[pixel.pixel.y][pixel.pixel.x] = color;
             z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
         }
     }
@@ -496,7 +547,7 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, FILL_MODE fill, TGAImage* te
             }
 
             Vec3f shaded_pixel_color = component_wise_product(pixel_color, interpolated_light);
-            image->set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_pixel_color));
+            color_buffer[pixel.pixel.y][pixel.pixel.x] = shaded_pixel_color;
             z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
         }
     }
@@ -554,7 +605,7 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, 
             }
 
             Vec3f shaded_pixel_color = component_wise_product(pixel_color, total_light);
-            image->set(pixel.pixel.x, pixel.pixel.y, to_tgacolor(shaded_pixel_color));
+            color_buffer[pixel.pixel.y][pixel.pixel.x] = shaded_pixel_color;
             z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
         }
     }

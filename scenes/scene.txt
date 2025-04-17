@@ -6,9 +6,9 @@ Texture
 
 Material
     k_d 0.7
-    k_s 0.2
+    k_s 0.0
     k_a 0.0
-    shininess 20
+    shininess 10
 
 Camera
     type     perspective
@@ -22,8 +22,8 @@ Object3D
     material 0
     position 0.0 0.0 0.0
     scale 1.0
-    shading gouraud
-    modes fill
+    shading phong
+    modes fill 
 
 Light
     type point
