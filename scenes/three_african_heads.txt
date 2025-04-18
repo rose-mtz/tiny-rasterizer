@@ -22,9 +22,9 @@ Camera
 # Center head -------------
 
 Material
-    k_d 0.7
+    k_d 0.6
     k_s 0.3
-    k_a 0.0
+    k_a 0.1
     shininess 10
 
 Object3D
