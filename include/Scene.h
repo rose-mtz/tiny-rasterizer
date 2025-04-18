@@ -14,6 +14,7 @@ struct ImageMetadata
     Vec2i aspect_ratio;
     int width_pixels;
     int supersample_factor;
+    std::string save_location;
 };
 
 

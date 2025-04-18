@@ -35,6 +35,7 @@ ImageMetadata* parse_image_metadata(std::ifstream& in)
     Vec2i aspect_ratio = Vec2i(1, 1);
     int width_pixels = 500;
     int supersample_factor = 1;
+    std::string save_location = "./output.tga";
 
     std::string line; std::getline(in, line);
     while (line.size() != 0) // Empty line indicates end of attributes
@@ -59,6 +60,10 @@ ImageMetadata* parse_image_metadata(std::ifstream& in)
         {
             assert(iss >> supersample_factor);
         }
+        else if (attribute == "save_location")
+        {
+            assert(iss >> save_location);
+        }
         else
         {
             std::cout << "Error:: unkown Image_Metadata attribute " << attribute << '\n';
@@ -77,6 +82,7 @@ ImageMetadata* parse_image_metadata(std::ifstream& in)
     metadata->aspect_ratio = aspect_ratio;
     metadata->width_pixels = width_pixels;
     metadata->supersample_factor = supersample_factor;
+    metadata->save_location = save_location;
 
     return metadata;
 }
@@ -420,6 +426,10 @@ Scene::Scene(const char* filename)
         else if (type == "Image_Metadata")
         {
             this->metadata = parse_image_metadata(in);
+        }
+        else if (type == "#") // comment
+        {
+            continue;
         }
         else if (line.size() != 0)
         {

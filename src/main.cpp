@@ -68,9 +68,15 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, FILL_MODE fill, TGAImage* te
 void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, Mat4x4f camera, Mat3x3f camera_inv_trans, Material* mat, FILL_MODE fill, TGAImage* texture = nullptr);
 
 
-int main()
+int main(int argc, char* argv[])
 {
-    Scene scene ("scenes/scene.txt");
+    if (argc != 2)
+    {
+        std::cout << "Error: Need to pass in scene as command-line argument.\n";
+        return 0;
+    }
+
+    Scene scene (argv[1]);
     supersample_factor = scene.metadata->supersample_factor;
     device_width = scene.metadata->width_pixels;
     device_height = (scene.metadata->aspect_ratio.y * device_width) / scene.metadata->aspect_ratio.x;
@@ -165,13 +171,6 @@ int main()
             vertex_1.norm_world = (world_inv_trans * obj->model->norm(face[5])).normalize();
             vertex_2.norm_world = (world_inv_trans * obj->model->norm(face[8])).normalize();
 
-            // Culling: back facing triangle check
-            // NOTE: some triangles that should be culled will not be culled
-            //       but (hopefully) no triangle that can be seen (i.e not supposed to be culled)
-            //       will not be culled
-            Vec3f triangle_normal = get_triangle_normal(vertex_0.pos_camera, vertex_1.pos_camera, vertex_2.pos_camera).normalize();
-            if (triangle_normal * Vec3f(0.0f, 0.0f, 1.0f) < -0.01f) continue;
-
             // Project coordinates to virtual screen
             Vec4f v0_projected = projection * Vec4f(vertex_0.pos_camera, 1.0f);
             Vec4f v1_projected = projection * Vec4f(vertex_1.pos_camera, 1.0f);
@@ -185,6 +184,10 @@ int main()
             vertex_0.pos_device = device * Vec3f(v0_virtual.x, v0_virtual.y, 1.0f); vertex_0.pos_device.z = v0_virtual.z; // keep depth
             vertex_1.pos_device = device * Vec3f(v1_virtual.x, v1_virtual.y, 1.0f); vertex_1.pos_device.z = v1_virtual.z;
             vertex_2.pos_device = device * Vec3f(v2_virtual.x, v2_virtual.y, 1.0f); vertex_2.pos_device.z = v2_virtual.z;
+
+            // Triangle culling in device space
+            Vec3f triangle_normal_device = get_triangle_normal(Vec3f(vertex_0.pos_device.x, vertex_0.pos_device.y, 0.0f), Vec3f(vertex_1.pos_device.x, vertex_1.pos_device.y, 0.0f), Vec3f(vertex_2.pos_device.x, vertex_2.pos_device.y, 0.0f)).normalize();
+            if (triangle_normal_device == Vec3f(0.0f, 0.0f, -1.0f)) continue;
 
             // Set shading
 
@@ -200,7 +203,8 @@ int main()
                     light_camera.direction = (camera_inv_trans * light_camera.direction).normalize();
                     
                     // Shading done in camera space
-                    float shading = calculate_shading(triangle_center, triangle_normal, *obj->mat, light_camera, Vec3f(0.0f));
+                    Vec3f triangle_normal_camera = get_triangle_normal(vertex_0.pos_camera, vertex_1.pos_camera, vertex_2.pos_camera).normalize();
+                    float shading = calculate_shading(triangle_center, triangle_normal_camera, *obj->mat, light_camera, Vec3f(0.0f));
                     Vec3f light_color = light_camera.color;
                     light_flat = light_flat + Vec3f(light_color.x * shading, light_color.y * shading, light_color.z * shading);
                 }
@@ -346,7 +350,7 @@ int main()
             tga_image.set(x, (device_height - 1 - y), to_tgacolor(downsampled_color_buffer[y][x]));
         }
     }
-    tga_image.write_tga_file("output.tga");
+    tga_image.write_tga_file(scene.metadata->save_location.c_str());
 
     return 0;
 }
