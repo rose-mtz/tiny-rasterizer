@@ -144,57 +144,35 @@ int main(int argc, char* argv[])
         for (int f = 0; f < obj->model->nfaces(); f++)
         {
             std::vector<int> face = obj->model->face(f);
-            Vertex vertex_0, vertex_1, vertex_2;
-            
-            // Set uvs
-            vertex_0.uv = obj->model->uv(face[1]);
-            vertex_1.uv = obj->model->uv(face[4]);
-            vertex_2.uv = obj->model->uv(face[7]);
+            std::vector<Vertex> vertices (face.size() / 3); // 3 indices per vertex (pos, uv, norm)
 
-            // Set position in camera space
-            vertex_0.pos_camera = (camera_world * Vec4f(obj->model->vert(face[0]), 1.0f)).xyz();
-            vertex_1.pos_camera = (camera_world * Vec4f(obj->model->vert(face[3]), 1.0f)).xyz();
-            vertex_2.pos_camera = (camera_world * Vec4f(obj->model->vert(face[6]), 1.0f)).xyz();
+            // Set up vertices
+            for (int v = 0; v < vertices.size(); v++)
+            {
+                int pos_index  = (v * 3);
+                int uv_index   = (v * 3) + 1;
+                int norm_index = (v * 3) + 2;
 
-            // Set normals in camera space
-            vertex_0.norm_camera = (camera_world_inv_trans * obj->model->norm(face[2])).normalize();
-            vertex_1.norm_camera = (camera_world_inv_trans * obj->model->norm(face[5])).normalize();
-            vertex_2.norm_camera = (camera_world_inv_trans * obj->model->norm(face[8])).normalize();
+                vertices[v].uv = obj->model->uv(face[uv_index]);
+                vertices[v].pos_camera = (camera_world * Vec4f(obj->model->vert(face[pos_index]), 1.0f)).xyz();
+                vertices[v].norm_camera = (camera_world_inv_trans * obj->model->norm(face[norm_index])).normalize();
+                vertices[v].pos_world = (world * Vec4f(obj->model->vert(face[pos_index]), 1.0f)).xyz();
+                vertices[v].norm_world = (world_inv_trans * obj->model->norm(face[norm_index])).normalize();
 
-            // Set position in world space
-            vertex_0.pos_world = (world * Vec4f(obj->model->vert(face[0]), 1.0f)).xyz();
-            vertex_1.pos_world = (world * Vec4f(obj->model->vert(face[3]), 1.0f)).xyz();
-            vertex_2.pos_world = (world * Vec4f(obj->model->vert(face[6]), 1.0f)).xyz();
+                Vec4f vertex_projected = projection * Vec4f(vertices[v].pos_camera, 1.0f);
+                Vec3f vertex_virtual = Vec3f(vertex_projected.x / std::abs(vertex_projected.w), vertex_projected.y / std::abs(vertex_projected.w), vertex_projected.z);
+                vertices[v].pos_device = device * Vec3f(vertex_virtual.x, vertex_virtual.y, 1.0f); vertices[v].pos_device.z = vertex_virtual.z;
+            }
 
-            // Set normals in world space
-            vertex_0.norm_world = (world_inv_trans * obj->model->norm(face[2])).normalize();
-            vertex_1.norm_world = (world_inv_trans * obj->model->norm(face[5])).normalize();
-            vertex_2.norm_world = (world_inv_trans * obj->model->norm(face[8])).normalize();
-
-            // Project coordinates to virtual screen
-            Vec4f v0_projected = projection * Vec4f(vertex_0.pos_camera, 1.0f);
-            Vec4f v1_projected = projection * Vec4f(vertex_1.pos_camera, 1.0f);
-            Vec4f v2_projected = projection * Vec4f(vertex_2.pos_camera, 1.0f);
-            // Homogenize-ish (z is not homogenized, stays same value as in camera space)
-            Vec3f v0_virtual = Vec3f(v0_projected.x / std::abs(v0_projected.w), v0_projected.y / std::abs(v0_projected.w), v0_projected.z);
-            Vec3f v1_virtual = Vec3f(v1_projected.x / std::abs(v1_projected.w), v1_projected.y / std::abs(v1_projected.w), v1_projected.z);
-            Vec3f v2_virtual = Vec3f(v2_projected.x / std::abs(v2_projected.w), v2_projected.y / std::abs(v2_projected.w), v2_projected.z);
-
-            // Set position in device space
-            vertex_0.pos_device = device * Vec3f(v0_virtual.x, v0_virtual.y, 1.0f); vertex_0.pos_device.z = v0_virtual.z; // keep depth
-            vertex_1.pos_device = device * Vec3f(v1_virtual.x, v1_virtual.y, 1.0f); vertex_1.pos_device.z = v1_virtual.z;
-            vertex_2.pos_device = device * Vec3f(v2_virtual.x, v2_virtual.y, 1.0f); vertex_2.pos_device.z = v2_virtual.z;
-
-            // Triangle culling in device space
-            Vec3f triangle_normal_device = get_triangle_normal(Vec3f(vertex_0.pos_device.x, vertex_0.pos_device.y, 0.0f), Vec3f(vertex_1.pos_device.x, vertex_1.pos_device.y, 0.0f), Vec3f(vertex_2.pos_device.x, vertex_2.pos_device.y, 0.0f)).normalize();
-            if (triangle_normal_device == Vec3f(0.0f, 0.0f, -1.0f)) continue;
-
-            // Set shading
-
+            // Do shading
             if (obj->shading == "flat")
             {
-                Vec3f light_flat (0.0f);
-                Vec3f triangle_center = interpolate_barycentric_vec3f(vertex_0.pos_camera, vertex_1.pos_camera, vertex_2.pos_camera, Vec3f(1.0f / 3.0f));
+                Vec3f total_shading (0.0f);
+
+                // This won't work for quads
+                Vec3f triangle_center = interpolate_barycentric_vec3f(vertices[0].pos_camera, vertices[1].pos_camera, vertices[2].pos_camera, Vec3f(1.0f / 3.0f));
+                Vec3f triangle_normal_camera = get_triangle_normal(vertices[0].pos_camera, vertices[1].pos_camera, vertices[2].pos_camera).normalize();
+
                 for (int l = 0; l < scene.lights.size(); l++)
                 {
                     // World --> camera
@@ -203,51 +181,48 @@ int main(int argc, char* argv[])
                     light_camera.direction = (camera_inv_trans * light_camera.direction).normalize();
                     
                     // Shading done in camera space
-                    Vec3f triangle_normal_camera = get_triangle_normal(vertex_0.pos_camera, vertex_1.pos_camera, vertex_2.pos_camera).normalize();
                     float shading = calculate_shading(triangle_center, triangle_normal_camera, *obj->mat, light_camera, Vec3f(0.0f));
                     Vec3f light_color = light_camera.color;
-                    light_flat = light_flat + Vec3f(light_color.x * shading, light_color.y * shading, light_color.z * shading);
+                    total_shading = total_shading + Vec3f(light_color.x * shading, light_color.y * shading, light_color.z * shading);
                 }
-                
-                light_flat = clampedVec3f(light_flat, 0.0f, 1.0f);
+                total_shading = clampedVec3f(total_shading, 0.0f, 1.0f);
 
-                vertex_0.shading = light_flat;
-                vertex_1.shading = light_flat;
-                vertex_2.shading = light_flat;
+                for (int v = 0; v < vertices.size(); v++)
+                {
+                    vertices[v].shading = total_shading;
+                }
             }
             else if (obj->shading == "gouraud")
             {
-                Vec3f light_gouraud_a (0.0f);
-                Vec3f light_gouraud_b (0.0f);
-                Vec3f light_gouraud_c (0.0f);
-
-                for (int l = 0; l < scene.lights.size(); l++)
+                for (int v = 0; v < vertices.size(); v++)
                 {
-                    // World --> camera
-                    Light light_camera = *scene.lights[l];
-                    light_camera.pos = (camera * Vec4f(light_camera.pos, 1.0f)).xyz();
-                    light_camera.direction = (camera_inv_trans * light_camera.direction).normalize();
+                    Vec3f total_shading (0.0f);
+                    for (int l = 0; l < scene.lights.size(); l++)
+                    {
+                        // World --> camera
+                        Light light_camera = *scene.lights[l];
+                        light_camera.pos = (camera * Vec4f(light_camera.pos, 1.0f)).xyz();
+                        light_camera.direction = (camera_inv_trans * light_camera.direction).normalize();
 
-                    // Shading done in camera space
-                    float shading_a = calculate_shading(vertex_0.pos_camera, vertex_0.norm_camera, *obj->mat, light_camera, Vec3f(0.0f));
-                    float shading_b = calculate_shading(vertex_1.pos_camera, vertex_1.norm_camera, *obj->mat, light_camera, Vec3f(0.0f));
-                    float shading_c = calculate_shading(vertex_2.pos_camera, vertex_2.norm_camera, *obj->mat, light_camera, Vec3f(0.0f));
-                    Vec3f light_color = light_camera.color;
-                    light_gouraud_a = light_gouraud_a + Vec3f(light_color.x * shading_a, light_color.y * shading_a, light_color.z * shading_a);
-                    light_gouraud_b = light_gouraud_b + Vec3f(light_color.x * shading_b, light_color.y * shading_b, light_color.z * shading_b);
-                    light_gouraud_c = light_gouraud_c + Vec3f(light_color.x * shading_c, light_color.y * shading_c, light_color.z * shading_c);
+                        // Shading done in camera space
+                        float shading = calculate_shading(vertices[v].pos_camera, vertices[v].norm_camera, *obj->mat, light_camera, Vec3f(0.0f));
+                        Vec3f light_color = light_camera.color;
+                        total_shading = total_shading + Vec3f(light_color.x * shading, light_color.y * shading, light_color.z * shading);
+                    }
+                    vertices[v].shading = clampedVec3f(total_shading, 0.0f, 1.0f);
                 }
-
-                vertex_0.shading = clampedVec3f(light_gouraud_a, 0.0f, 1.0f);
-                vertex_1.shading = clampedVec3f(light_gouraud_b, 0.0f, 1.0f);
-                vertex_2.shading = clampedVec3f(light_gouraud_c, 0.0f, 1.0f);
             }
             else if (obj->shading == "none")
             {
-                vertex_0.shading = Vec3f(1.0f, 1.0f, 1.0f);
-                vertex_1.shading = Vec3f(1.0f, 1.0f, 1.0f);
-                vertex_2.shading = Vec3f(1.0f, 1.0f, 1.0f);
+                for (int v = 0; v < vertices.size(); v++)
+                {
+                    vertices[v].shading = Vec3f(1.0f, 1.0f, 1.0f);
+                }
             }
+
+            // Triangle culling in device space
+            Vec3f triangle_normal_device = get_triangle_normal(Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, 0.0f), Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, 0.0f), Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, 0.0f)).normalize();
+            if (triangle_normal_device == Vec3f(0.0f, 0.0f, -1.0f)) continue;
 
             // NOTE: Barycentric coordinates will be distorted by the non-affine transformation perspective projection
             //       So, unless they are re-adjusted for this distortion, they will be wrong
@@ -259,40 +234,40 @@ int main(int argc, char* argv[])
                 {
                     if (obj->colored_vertex_normals_mode) // colored vertex normals
                     {
-                        draw_triangle(vertex_0, vertex_1, vertex_2, scene.lights, camera, camera_inv_trans, obj->mat, COLORED_NORMALS);
+                        draw_triangle(vertices[0], vertices[1], vertices[2], scene.lights, camera, camera_inv_trans, obj->mat, COLORED_NORMALS);
                     }
                     else if (obj->colored_triangle_normals_mode) // colored triangle normals
                     {
-                        Vec3f triangle_normal_world = get_triangle_normal(vertex_0.pos_world, vertex_1.pos_world, vertex_2.pos_world);
+                        Vec3f triangle_normal_world = get_triangle_normal(vertices[0].pos_world, vertices[1].pos_world, vertices[2].pos_world);
                         Vec3f colored_triangle_normal = normal_colored(triangle_normal_world);
-                        vertex_0.color = colored_triangle_normal;
-                        vertex_1.color = colored_triangle_normal;
-                        vertex_2.color = colored_triangle_normal;
-                        draw_triangle(vertex_0, vertex_1, vertex_2, scene.lights, camera, camera_inv_trans, obj->mat, VERTEX_COLOR);
+                        vertices[0].color = colored_triangle_normal;
+                        vertices[1].color = colored_triangle_normal;
+                        vertices[2].color = colored_triangle_normal;
+                        draw_triangle(vertices[0], vertices[1], vertices[2], scene.lights, camera, camera_inv_trans, obj->mat, VERTEX_COLOR);
                     }
                     else // texture
                     {
-                        draw_triangle(vertex_0, vertex_1, vertex_2, scene.lights, camera, camera_inv_trans, obj->mat, TEXTURE, obj->texture);
+                        draw_triangle(vertices[0], vertices[1], vertices[2], scene.lights, camera, camera_inv_trans, obj->mat, TEXTURE, obj->texture);
                     }
                 }
                 else // none, flat, or gouraud shading
                 {
                     if (obj->colored_vertex_normals_mode) // colored vertex normals
                     {
-                        draw_triangle(vertex_0, vertex_1, vertex_2, COLORED_NORMALS);
+                        draw_triangle(vertices[0], vertices[1], vertices[2], COLORED_NORMALS);
                     }
                     else if (obj->colored_triangle_normals_mode) // colored triangle normals
                     {
-                        Vec3f triangle_normal_world = get_triangle_normal(vertex_0.pos_world, vertex_1.pos_world, vertex_2.pos_world);
+                        Vec3f triangle_normal_world = get_triangle_normal(vertices[0].pos_world, vertices[1].pos_world, vertices[2].pos_world);
                         Vec3f colored_triangle_normal = normal_colored(triangle_normal_world);
-                        vertex_0.color = colored_triangle_normal;
-                        vertex_1.color = colored_triangle_normal;
-                        vertex_2.color = colored_triangle_normal;
-                        draw_triangle(vertex_0, vertex_1, vertex_2, VERTEX_COLOR);
+                        vertices[0].color = colored_triangle_normal;
+                        vertices[1].color = colored_triangle_normal;
+                        vertices[2].color = colored_triangle_normal;
+                        draw_triangle(vertices[0], vertices[1], vertices[2], VERTEX_COLOR);
                     }
                     else // texture
                     {
-                        draw_triangle(vertex_0, vertex_1, vertex_2, TEXTURE, obj->texture);
+                        draw_triangle(vertices[0], vertices[1], vertices[2], TEXTURE, obj->texture);
                     }
                 }
             }
@@ -302,9 +277,9 @@ int main(int argc, char* argv[])
                 // Wire frame render
                 float line_thickness = 4.0f;
                 float wireframe_epsilon = 0.01f; // for preventing z-fighting with triangle
-                draw_line(Vec3f(vertex_0.pos_device.x, vertex_0.pos_device.y, vertex_0.pos_device.z + wireframe_epsilon), Vec3f(vertex_1.pos_device.x, vertex_1.pos_device.y, vertex_1.pos_device.z + wireframe_epsilon), line_thickness, RED);
-                draw_line(Vec3f(vertex_1.pos_device.x, vertex_1.pos_device.y, vertex_1.pos_device.z + wireframe_epsilon), Vec3f(vertex_2.pos_device.x, vertex_2.pos_device.y, vertex_2.pos_device.z + wireframe_epsilon), line_thickness, RED);
-                draw_line(Vec3f(vertex_2.pos_device.x, vertex_2.pos_device.y, vertex_2.pos_device.z + wireframe_epsilon), Vec3f(vertex_0.pos_device.x, vertex_0.pos_device.y, vertex_0.pos_device.z + wireframe_epsilon), line_thickness, RED);
+                draw_line(Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, vertices[0].pos_device.z + wireframe_epsilon), Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, vertices[1].pos_device.z + wireframe_epsilon), line_thickness, RED);
+                draw_line(Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, vertices[1].pos_device.z + wireframe_epsilon), Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, vertices[2].pos_device.z + wireframe_epsilon), line_thickness, RED);
+                draw_line(Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, vertices[2].pos_device.z + wireframe_epsilon), Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, vertices[0].pos_device.z + wireframe_epsilon), line_thickness, RED);
             }
         }
     }
