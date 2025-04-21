@@ -30,11 +30,13 @@ template <class t> struct Vec2
 	inline Vec2<t> operator -(const Vec2<t> &V) const { return Vec2<t>(u-V.u, v-V.v); }
 	inline Vec2<t> operator *(float f)          const { return Vec2<t>(u*f, v*f); }
 	inline float   operator *(const Vec2<t> &V) const { return u*V.u + v*V.v; }
+	inline bool	   operator ==(const Vec2<t> &V) const { return x == V.x && y == V.y; }
 
 	// Methods
 
 	float     length () const { return std::sqrt(x*x+y*y); }
 	Vec2<t> & normalize(t l=1) { *this = (*this)*(l/length()); return *this; }
+
 
 	// For debuging
 
@@ -71,6 +73,7 @@ template <class t> struct Vec3
 	float     length () const { return std::sqrt(x*x+y*y+z*z); }
 	Vec3<t> & normalize(t l=1) { *this = (*this)*(l/length()); return *this; }
 	Vec2<t> xy() const { return Vec2<t>(x, y); }
+	Vec3<t> static hadamard_product(const Vec3<t>& a, const Vec3<t>& b) { return Vec3<t>(a.x*b.x, a.y*b.y, a.z*b.z); }
 
 	// For debugging
 
@@ -295,6 +298,7 @@ struct Mat4x4f
 	}
 };
 
+float cross(Vec2f a, Vec2f b);
 
 Vec3f reflect(Vec3f n, Vec3f l);
 Vec3f get_triangle_normal(Vec3f a, Vec3f b, Vec3f c);
@@ -309,7 +313,8 @@ Mat4x4f get_transformation(Vec3f pos, float scale);
 Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up);
 
 float power(float a, int b);
-Vec3f component_wise_product(Vec3f a, Vec3f b);
+Vec3f component_wise_product_vec3f(Vec3f a, Vec3f b);
+Vec2f component_wise_product_vec2f(Vec2f a, Vec2f b);
 
 Vec3f interpolate_barycentric_vec3f(Vec3f a, Vec3f b, Vec3f c, Vec3f weights);
 Vec2f interpolate_barycentric_vec2f(Vec2f a, Vec2f b, Vec2f c, Vec3f weights);

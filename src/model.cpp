@@ -28,12 +28,12 @@ Model::Model(const char *filename) : verts_(), faces_()
             for (int i=0;i<3;i++) iss >> v.raw[i];
             verts_.push_back(v);
         } 
-        else if (!line.compare(0, 2, "vt"))
+        else if (!line.compare(0, 2, "vt") || !line.compare(0, 2, "vc"))
         {
             iss >> trash >> trash;
-            Vec2f uv;
-            for (int i=0;i<2;i++) iss >> uv.raw[i];
-            uvs_.push_back(uv);
+            Vec3f tex;
+            for (int i=0;i<3;i++) iss >> tex.raw[i];
+            textures_.push_back(tex);
         }
         else if (!line.compare(0, 2, "vn"))
         {
@@ -93,5 +93,10 @@ Vec3f Model::norm(int i)
 
 Vec2f Model::uv(int i)
 {
-    return uvs_[i];
+    return Vec2f(textures_[i].x, textures_[i].y);
+}
+
+Vec3f Model::color(int i)
+{
+    return textures_[i];
 }

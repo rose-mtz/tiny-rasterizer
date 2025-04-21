@@ -42,6 +42,12 @@ struct LinePixel
     float t;
 };
 
+struct QuadPixel
+{
+    Vec2i pixel;
+    float alpha, beta, gamma, lambda;
+};
+
 struct Vertex
 {
     Vec3f pos_device;
@@ -54,7 +60,7 @@ struct Vertex
     Vec3f pos_world;
 }; // TODO: reorder struct members
 
-enum FILL_MODE { TEXTURE, VERTEX_COLOR, COLORED_NORMALS };
+enum FILL_MODE { VERTEX_UV, VERTEX_COLOR, COLORED_NORMALS };
 
 
 Vec3f normal_colored(Vec3f normal);
@@ -66,7 +72,7 @@ float calculate_shading(Vec3f p, Vec3f n, Material mat, Light light, Vec3f camer
 void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color);
 void draw_triangle(Vertex v0, Vertex v1, Vertex v2, FILL_MODE fill, TGAImage* texture = nullptr);
 void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, Mat4x4f camera, Mat3x3f camera_inv_trans, Material* mat, FILL_MODE fill, TGAImage* texture = nullptr);
-
+void draw_quad(Vertex v0, Vertex v1, Vertex v2, Vertex v3, FILL_MODE fill, TGAImage* texture);
 
 int main(int argc, char* argv[])
 {
@@ -144,7 +150,7 @@ int main(int argc, char* argv[])
         for (int f = 0; f < obj->model->nfaces(); f++)
         {
             std::vector<int> face = obj->model->face(f);
-            std::vector<Vertex> vertices (face.size() / 3); // 3 indices per vertex (pos, uv, norm)
+            std::vector<Vertex> vertices (face.size() / 3); // 3 indices per vertex (pos, tex, norm)
 
             // Set up vertices
             for (int v = 0; v < vertices.size(); v++)
@@ -154,6 +160,7 @@ int main(int argc, char* argv[])
                 int norm_index = (v * 3) + 2;
 
                 vertices[v].uv = obj->model->uv(face[uv_index]);
+                vertices[v].color = obj->model->color(face[uv_index]);
                 vertices[v].pos_camera = (camera_world * Vec4f(obj->model->vert(face[pos_index]), 1.0f)).xyz();
                 vertices[v].norm_camera = (camera_world_inv_trans * obj->model->norm(face[norm_index])).normalize();
                 vertices[v].pos_world = (world * Vec4f(obj->model->vert(face[pos_index]), 1.0f)).xyz();
@@ -170,7 +177,7 @@ int main(int argc, char* argv[])
                 Vec3f total_shading (0.0f);
 
                 // This won't work for quads
-                Vec3f triangle_center = interpolate_barycentric_vec3f(vertices[0].pos_camera, vertices[1].pos_camera, vertices[2].pos_camera, Vec3f(1.0f / 3.0f));
+                Vec3f triangle_center = interpolate_barycentric_vec3f(vertices[0].pos_camera, vertices[1].pos_camera, vertices[2].pos_camera, Vec3f(1.0f / 3.0f)); // hardcoded weight (1/3 for triangles, 1/4 for quads)
                 Vec3f triangle_normal_camera = get_triangle_normal(vertices[0].pos_camera, vertices[1].pos_camera, vertices[2].pos_camera).normalize();
 
                 for (int l = 0; l < scene.lights.size(); l++)
@@ -221,65 +228,80 @@ int main(int argc, char* argv[])
             }
 
             // Triangle culling in device space
-            Vec3f triangle_normal_device = get_triangle_normal(Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, 0.0f), Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, 0.0f), Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, 0.0f)).normalize();
-            if (triangle_normal_device == Vec3f(0.0f, 0.0f, -1.0f)) continue;
+            // Vec3f triangle_normal_device = get_triangle_normal(Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, 0.0f), Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, 0.0f), Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, 0.0f)).normalize();
+            // if (triangle_normal_device == Vec3f(0.0f, 0.0f, -1.0f)) continue;
 
             // NOTE: Barycentric coordinates will be distorted by the non-affine transformation perspective projection
             //       So, unless they are re-adjusted for this distortion, they will be wrong
             //       I haven't noticed any problems caused by this, so for now I'll stick with this (not correcting them)
 
-            if (obj->fill_mode)
+            if (vertices.size() == 3)
             {
-                if (obj->shading == "phong")
+                if (obj->fill_mode)
                 {
-                    if (obj->colored_vertex_normals_mode) // colored vertex normals
+                    if (obj->shading == "phong")
                     {
-                        draw_triangle(vertices[0], vertices[1], vertices[2], scene.lights, camera, camera_inv_trans, obj->mat, COLORED_NORMALS);
+                        if (obj->colored_vertex_normals_mode) // colored vertex normals
+                        {
+                            draw_triangle(vertices[0], vertices[1], vertices[2], scene.lights, camera, camera_inv_trans, obj->mat, COLORED_NORMALS);
+                        }
+                        else if (obj->colored_triangle_normals_mode) // colored triangle normals
+                        {
+                            Vec3f triangle_normal_world = get_triangle_normal(vertices[0].pos_world, vertices[1].pos_world, vertices[2].pos_world);
+                            Vec3f colored_triangle_normal = normal_colored(triangle_normal_world);
+                            vertices[0].color = colored_triangle_normal;
+                            vertices[1].color = colored_triangle_normal;
+                            vertices[2].color = colored_triangle_normal;
+                            draw_triangle(vertices[0], vertices[1], vertices[2], scene.lights, camera, camera_inv_trans, obj->mat, VERTEX_COLOR);
+                        }
+                        else // texture
+                        {
+                            draw_triangle(vertices[0], vertices[1], vertices[2], scene.lights, camera, camera_inv_trans, obj->mat, VERTEX_UV, obj->texture);
+                        }
                     }
-                    else if (obj->colored_triangle_normals_mode) // colored triangle normals
+                    else // none, flat, or gouraud shading
                     {
-                        Vec3f triangle_normal_world = get_triangle_normal(vertices[0].pos_world, vertices[1].pos_world, vertices[2].pos_world);
-                        Vec3f colored_triangle_normal = normal_colored(triangle_normal_world);
-                        vertices[0].color = colored_triangle_normal;
-                        vertices[1].color = colored_triangle_normal;
-                        vertices[2].color = colored_triangle_normal;
-                        draw_triangle(vertices[0], vertices[1], vertices[2], scene.lights, camera, camera_inv_trans, obj->mat, VERTEX_COLOR);
-                    }
-                    else // texture
-                    {
-                        draw_triangle(vertices[0], vertices[1], vertices[2], scene.lights, camera, camera_inv_trans, obj->mat, TEXTURE, obj->texture);
+                        if (obj->colored_vertex_normals_mode) // colored vertex normals
+                        {
+                            draw_triangle(vertices[0], vertices[1], vertices[2], COLORED_NORMALS);
+                        }
+                        else if (obj->colored_triangle_normals_mode) // colored triangle normals
+                        {
+                            Vec3f triangle_normal_world = get_triangle_normal(vertices[0].pos_world, vertices[1].pos_world, vertices[2].pos_world);
+                            Vec3f colored_triangle_normal = normal_colored(triangle_normal_world);
+                            vertices[0].color = colored_triangle_normal;
+                            vertices[1].color = colored_triangle_normal;
+                            vertices[2].color = colored_triangle_normal;
+                            draw_triangle(vertices[0], vertices[1], vertices[2], VERTEX_COLOR);
+                        }
+                        else // texture
+                        {
+                            draw_triangle(vertices[0], vertices[1], vertices[2], VERTEX_UV, obj->texture);
+                        }
                     }
                 }
-                else // none, flat, or gouraud shading
+
+                if (obj->wireframe_mode)
                 {
-                    if (obj->colored_vertex_normals_mode) // colored vertex normals
-                    {
-                        draw_triangle(vertices[0], vertices[1], vertices[2], COLORED_NORMALS);
-                    }
-                    else if (obj->colored_triangle_normals_mode) // colored triangle normals
-                    {
-                        Vec3f triangle_normal_world = get_triangle_normal(vertices[0].pos_world, vertices[1].pos_world, vertices[2].pos_world);
-                        Vec3f colored_triangle_normal = normal_colored(triangle_normal_world);
-                        vertices[0].color = colored_triangle_normal;
-                        vertices[1].color = colored_triangle_normal;
-                        vertices[2].color = colored_triangle_normal;
-                        draw_triangle(vertices[0], vertices[1], vertices[2], VERTEX_COLOR);
-                    }
-                    else // texture
-                    {
-                        draw_triangle(vertices[0], vertices[1], vertices[2], TEXTURE, obj->texture);
-                    }
+                    // Wire frame render
+                    float line_thickness = 4.0f;
+                    float wireframe_epsilon = 0.01f; // for preventing z-fighting with triangle
+                    draw_line(Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, vertices[0].pos_device.z + wireframe_epsilon), Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, vertices[1].pos_device.z + wireframe_epsilon), line_thickness, RED);
+                    draw_line(Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, vertices[1].pos_device.z + wireframe_epsilon), Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, vertices[2].pos_device.z + wireframe_epsilon), line_thickness, RED);
+                    draw_line(Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, vertices[2].pos_device.z + wireframe_epsilon), Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, vertices[0].pos_device.z + wireframe_epsilon), line_thickness, RED);
                 }
             }
-
-            if (obj->wireframe_mode)
+            else // 4 vertex
             {
-                // Wire frame render
-                float line_thickness = 4.0f;
-                float wireframe_epsilon = 0.01f; // for preventing z-fighting with triangle
-                draw_line(Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, vertices[0].pos_device.z + wireframe_epsilon), Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, vertices[1].pos_device.z + wireframe_epsilon), line_thickness, RED);
-                draw_line(Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, vertices[1].pos_device.z + wireframe_epsilon), Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, vertices[2].pos_device.z + wireframe_epsilon), line_thickness, RED);
-                draw_line(Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, vertices[2].pos_device.z + wireframe_epsilon), Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, vertices[0].pos_device.z + wireframe_epsilon), line_thickness, RED);
+                draw_quad(vertices[0], vertices[1], vertices[2], vertices[3], VERTEX_COLOR, obj->texture);
+
+                // // // Wire frame render
+                // float line_thickness = 1.0f;
+                // float wireframe_epsilon = 0.01f; // for preventing z-fighting with triangle
+                // draw_line(Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, vertices[0].pos_device.z + wireframe_epsilon), Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, vertices[1].pos_device.z + wireframe_epsilon), line_thickness, RED);
+                // draw_line(Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, vertices[1].pos_device.z + wireframe_epsilon), Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, vertices[2].pos_device.z + wireframe_epsilon), line_thickness, RED);
+                // draw_line(Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, vertices[2].pos_device.z + wireframe_epsilon), Vec3f(vertices[3].pos_device.x, vertices[3].pos_device.y, vertices[3].pos_device.z + wireframe_epsilon), line_thickness, RED);
+                // draw_line(Vec3f(vertices[3].pos_device.x, vertices[3].pos_device.y, vertices[3].pos_device.z + wireframe_epsilon), Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, vertices[0].pos_device.z + wireframe_epsilon), line_thickness, RED);
             }
         }
     }
@@ -311,7 +333,7 @@ int main(int argc, char* argv[])
                 }
             }
 
-            Vec3f average = component_wise_product(sum, Vec3f(1.0f / (supersample_factor * supersample_factor))); 
+            Vec3f average = Vec3f::hadamard_product(sum, Vec3f(1.0f / (supersample_factor * supersample_factor)));
             downsampled_color_buffer[y][x] = average;
         }
     }
@@ -345,6 +367,73 @@ Vec3f to_vec3fcolor(TGAColor color)
 TGAColor to_tgacolor(Vec3f color)
 {
     return TGAColor(int(color.x * 255.99), int(color.y * 255.99), int(color.z * 255.99), 255);
+}
+
+
+std::vector<QuadPixel> rasterize_quad(Vec2f A, Vec2f B, Vec2f C, Vec2f D)
+{
+    std::vector<QuadPixel> pixels;
+
+    for (int row = 0; row < supersample_device_height; row++)
+    {
+        for (int col = 0; col < supersample_device_width; col++)
+        {
+            Vec2f P (col + 0.5f, row + 0.5f);
+            float u, v;
+
+            float a = cross(A - B, A - B - D + C);
+            float b = cross(P - A, A - B - D + C) + cross(A - B, D - A);
+            float c = cross(P - A, D - A);
+
+            if (a == 0) // degenerates to linear equation
+            {
+                u = -c / b;
+                
+                float numerator_x = (P.x - A.x + (u * A.x) - (u * B.x));
+                float numerator_y = (P.y - A.y + (u * A.y) - (u * B.y));
+                float denominator_x = (-A.x + (u * A.x) - (u * B.x) + D.x - (u * D.x) + (u * C.x));
+                float denominator_y = (-A.y + (u * A.y) - (u * B.y) + D.y - (u * D.y) + (u * C.y));
+                v = (denominator_x != 0.0f) ? numerator_x / denominator_x : numerator_y / denominator_y;
+
+                if (u < 0.0f || u > 1.0f) continue;
+                if (v < 0.0f || v > 1.0f) continue;
+            }
+            else // quadratic equation
+            {
+                float discriminant = (b * b) - (4 * a * c);
+                if (discriminant < 0) continue;
+
+                float u_plus = (-b + std::sqrt(discriminant)) / (2 * a);
+                float u_minus = (-b - std::sqrt(discriminant)) / (2 * a);
+
+                bool valid_u_plus = (u_plus >= 0.0f && u_plus <= 1.0f);
+                bool valid_u_minus = (u_minus >= 0.0f && u_minus <= 1.0f);
+
+                u = valid_u_plus ? u_plus : u_minus;
+
+                float numerator_x = (P.x - A.x + (u * A.x) - (u * B.x));
+                float numerator_y = (P.y - A.y + (u * A.y) - (u * B.y));
+                float denominator_x = (-A.x + (u * A.x) - (u * B.x) + D.x - (u * D.x) + (u * C.x));
+                float denominator_y = (-A.y + (u * A.y) - (u * B.y) + D.y - (u * D.y) + (u * C.y));
+
+                v = (denominator_x != 0.0f) ? numerator_x / denominator_x : numerator_y / denominator_y;
+                bool valid_v = (v >= 0.0f && v <= 1.0f);
+
+                if (!valid_u_plus && !valid_u_minus) continue;
+                if (!valid_v) continue;
+            }
+
+            QuadPixel pix;
+            pix.pixel  = Vec2i(col, row);
+            pix.alpha  = (1.0f - u) * (1.0f - v);
+            pix.beta   = u * (1.0f - v);
+            pix.gamma  = u * v;
+            pix.lambda = v * (1.0f - u);
+            pixels.push_back(pix);
+        }
+    }
+
+    return pixels;
 }
 
 
@@ -523,7 +612,7 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, FILL_MODE fill, TGAImage* te
             Vec3f interpolated_light = interpolate_barycentric_vec3f(v0.shading, v1.shading, v2.shading, pixel.barycentric);
 
             Vec3f pixel_color;
-            if (fill == TEXTURE)
+            if (fill == VERTEX_UV)
             {
                 Vec2f interpolated_uv = interpolate_barycentric_vec2f(v0.uv, v1.uv, v2.uv, pixel.barycentric);
                 Vec2i texture_pixel = Vec2i((texture->get_width() - 1) * interpolated_uv.x, (texture->get_height() - 1) * interpolated_uv.y);
@@ -539,7 +628,7 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, FILL_MODE fill, TGAImage* te
                 pixel_color = normal_colored(interpolated_normal);
             }
 
-            Vec3f shaded_pixel_color = component_wise_product(pixel_color, interpolated_light);
+            Vec3f shaded_pixel_color = Vec3f::hadamard_product(pixel_color, interpolated_light);
             color_buffer[pixel.pixel.y][pixel.pixel.x] = shaded_pixel_color;
             z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
         }
@@ -576,12 +665,12 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, 
                 // Shading done in camera space
                 float shading = calculate_shading(interpolated_point, interpolated_normal, *mat, light_camera, Vec3f(0.0f));
                 Vec3f light_color = light_camera.color;
-                total_light = total_light + component_wise_product(light_color, Vec3f(shading));
+                total_light = total_light + Vec3f::hadamard_product(light_color, Vec3f(shading));
             }
             total_light = clampedVec3f(total_light, 0.0f, 1.0f);
 
             Vec3f pixel_color;
-            if (fill == TEXTURE)
+            if (fill == VERTEX_UV)
             {
                 Vec2i texture_pixel = Vec2i((texture->get_width() - 1) * interpolated_uv.x, (texture->get_height() - 1) * interpolated_uv.y);
                 pixel_color = to_vec3fcolor(texture->get(texture_pixel.x, texture_pixel.y));
@@ -597,9 +686,52 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, 
                 pixel_color = normal_colored(interpolated_normal);
             }
 
-            Vec3f shaded_pixel_color = component_wise_product(pixel_color, total_light);
+            Vec3f shaded_pixel_color = Vec3f::hadamard_product(pixel_color, total_light);
             color_buffer[pixel.pixel.y][pixel.pixel.x] = shaded_pixel_color;
             z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
+        }
+    }
+}
+
+
+// Gouraud shading
+void draw_quad(Vertex v0, Vertex v1, Vertex v2, Vertex v3, FILL_MODE fill, TGAImage* texture)
+{
+    std::vector<QuadPixel> raster_quad = rasterize_quad(Vec2f(v0.pos_device.x, v0.pos_device.y), Vec2f(v1.pos_device.x, v1.pos_device.y), Vec2f(v2.pos_device.x, v2.pos_device.y), Vec2f(v3.pos_device.x, v3.pos_device.y));
+
+    for (int i = 0; i < raster_quad.size(); i++)
+    {
+        QuadPixel pix = raster_quad[i];
+        float interpolated_depth = v0.pos_device.z * pix.alpha + v1.pos_device.z * pix.beta + v2.pos_device.z * pix.gamma + v3.pos_device.z * pix.lambda;
+
+        if (z_buffer[pix.pixel.y][pix.pixel.x] <= interpolated_depth)
+        {
+            // Vec3f interpolated_light = interpolate_barycentric_vec3f(v0.shading, v1.shading, v2.shading, pixel.barycentric);
+            // Vec3f interpolated_light = component_wise_product_vec3f(v0.shading, Vec3f(pix.alpha)) + component_wise_product_vec3f(v1.shading, Vec3f(pix.beta)) + component_wise_product_vec3f(v2.shading, Vec3f(pix.gamma)) + component_wise_product_vec3f(v3.shading, Vec3f(pix.lambda));
+
+            Vec3f pixel_color = RED;
+            // if (fill == TEXTURE)
+            // {
+            //     Vec2f interpolated_uv = component_wise_product_vec2f(v0.uv, Vec2f(pix.alpha, pix.alpha)) + component_wise_product_vec2f(v1.uv, Vec2f(pix.beta, pix.beta)) + component_wise_product_vec2f(v2.uv, Vec2f(pix.gamma, pix.gamma)) + component_wise_product_vec2f(v3.uv, Vec2f(pix.lambda, pix.lambda));
+
+
+            //     Vec2i texture_pixel = Vec2i((texture->get_width() - 1) * interpolated_uv.x, (texture->get_height() - 1) * interpolated_uv.y);
+            //     pixel_color = to_vec3fcolor(texture->get(texture_pixel.x, texture_pixel.y));
+            // }
+            // else if (fill == VERTEX_COLOR)
+            // {
+            //     pixel_color = component_wise_product_vec3f(v0.color, Vec3f(pix.alpha)) + component_wise_product_vec3f(v1.color, Vec3f(pix.beta)) + component_wise_product_vec3f(v2.color, Vec3f(pix.gamma)) + component_wise_product_vec3f(v3.color, Vec3f(pix.lambda));
+            // }
+            // else // COLORED_NORMALS
+            // {
+            //     Vec3f interpolated_normal = (component_wise_product_vec3f(v0.norm_world, Vec3f(pix.alpha)) + component_wise_product_vec3f(v1.norm_world, Vec3f(pix.beta)) + component_wise_product_vec3f(v2.norm_world, Vec3f(pix.gamma)) + component_wise_product_vec3f(v3.norm_world, Vec3f(pix.lambda))).normalize();
+            //     pixel_color = normal_colored(interpolated_normal);
+            // }
+
+            // Vec3f shaded_pixel_color = component_wise_product_vec3f(pixel_color, interpolated_light);
+            pixel_color = Vec3f::hadamard_product(v0.color, Vec3f(pix.alpha)) + Vec3f::hadamard_product(v1.color, Vec3f(pix.beta)) + Vec3f::hadamard_product(v2.color, Vec3f(pix.gamma)) + Vec3f::hadamard_product(v3.color, Vec3f(pix.lambda));
+            color_buffer[pix.pixel.y][pix.pixel.x] = pixel_color;
+            z_buffer[pix.pixel.y][pix.pixel.x] = interpolated_depth;
         }
     }
 }

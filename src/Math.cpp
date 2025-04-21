@@ -2,6 +2,12 @@
 #include <cassert>
 
 
+float cross(Vec2f a, Vec2f b)
+{
+    return a.x * b.y - a.y * b.x;
+}
+
+
 float min(float a, float b)
 {
     return (a < b) ? a : b;
@@ -127,7 +133,13 @@ float interpolate_barycentric_f(float a, float b, float c, Vec3f weights)
 }
 
 
-Vec3f component_wise_product(Vec3f a, Vec3f b)
+Vec3f component_wise_product_vec3f(Vec3f a, Vec3f b)
 {
     return Vec3f(a.x * b.x, a.y * b.y, a.z * b.z);
+}
+
+
+Vec2f component_wise_product_vec2f(Vec2f a, Vec2f b)
+{
+    return Vec2f(a.x * b.x, a.y * b.y);
 }
