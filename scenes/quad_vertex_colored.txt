@@ -3,10 +3,10 @@ Image_Metadata
     aspect_ratio 1 1
     width 500
     supersample_factor 4
-    save_location ./archive/quad.tga
+    save_location ./archive/quad_vertex_colored.tga
 
 Model
-    filename assets/obj/quad.obj
+    filename assets/obj/quad_vertex_colored.obj
 
 # Scene --------------------------
 
@@ -19,9 +19,9 @@ Camera
 # Quad -------------
 
 Material
-    k_d 0.6
-    k_s 0.3
-    k_a 0.1
+    k_d 0.0
+    k_s 0.0
+    k_a 1.0
     shininess 10
 
 Object3D
@@ -29,14 +29,14 @@ Object3D
     material 0
     position 0.0 0.0 0.0
     scale 1.0
-    shading phong
-    modes fill colored_vertex_normals
+    shading none
+    modes fill vertex_colors
 
 # Lights --------------------------
 
 Light
-    type point
+    type directional
     direction 0.0 0.0 -1.0
     color 1.0 1.0 1.0
-    position 0.0 0.0 2.0
-    intensity 4.0
+    position 0.0 0.0 1.0
+    intensity 10.0

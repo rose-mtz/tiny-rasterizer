@@ -45,7 +45,7 @@ Vec3f reflect(Vec3f n, Vec3f l)
 }
 
 
-Vec3f get_triangle_normal(Vec3f a, Vec3f b, Vec3f c)
+Vec3f triangle_normal(Vec3f a, Vec3f b, Vec3f c)
 {
     Vec3f v1 = b - a;
     Vec3f v2 = c - a;
@@ -115,31 +115,19 @@ Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up)
 }
 
 
-Vec3f interpolate_barycentric_vec3f(Vec3f a, Vec3f b, Vec3f c, Vec3f weights)
+Vec3f barycentric_vec3f(Vec3f a, Vec3f b, Vec3f c, Vec3f weights)
 {
     return (a * weights.x) + (b * weights.y) + (c * weights.z);
 }
 
 
-Vec2f interpolate_barycentric_vec2f(Vec2f a, Vec2f b, Vec2f c, Vec3f weights)
+Vec2f barycentric_vec2f(Vec2f a, Vec2f b, Vec2f c, Vec3f weights)
 {
     return (a * weights.x) + (b * weights.y) + (c * weights.z);
 }
 
 
-float interpolate_barycentric_f(float a, float b, float c, Vec3f weights)
+float barycentric_f(float a, float b, float c, Vec3f weights)
 {
     return (a * weights.x) + (b * weights.y) + (c * weights.z);
-}
-
-
-Vec3f component_wise_product_vec3f(Vec3f a, Vec3f b)
-{
-    return Vec3f(a.x * b.x, a.y * b.y, a.z * b.z);
-}
-
-
-Vec2f component_wise_product_vec2f(Vec2f a, Vec2f b)
-{
-    return Vec2f(a.x * b.x, a.y * b.y);
 }

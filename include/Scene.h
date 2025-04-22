@@ -8,6 +8,7 @@
 #include <vector>
 
 
+
 struct ImageMetadata
 {
     Vec3f background_color;
@@ -26,6 +27,8 @@ struct Material
     float shininess; // q
 };
 
+// Fill mode for filling in faces of object
+enum class FILL_MODE { TEXTURE, VERTEX_COLORS, COLORED_FACE_NORMALS, COLORED_VERTEX_NORMALS };
 
 struct Object3D
 {
@@ -37,10 +40,12 @@ struct Object3D
     float scale;
 
     // Modes
-    bool colored_triangle_normals_mode;
-    bool colored_vertex_normals_mode;
-    bool wireframe_mode;
-    bool fill_mode;
+    // bool colored_face_normals_mode;
+    // bool colored_vertex_normals_mode;
+
+    bool wireframe;
+    bool fill;
+    FILL_MODE fill_mode;
 };
 
 

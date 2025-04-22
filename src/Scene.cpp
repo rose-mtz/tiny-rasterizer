@@ -172,10 +172,11 @@ Object3D* parse_object3d(std::ifstream& in)
     Vec3f position = Vec3f(0.0f, 0.0f, 0.0f);
     float scale = 1.0f;
     std::string shading = "flat";
-    bool colored_triangle_normals_mode = false;
-    bool colored_vertex_normals_mode = false;
-    bool wireframe_mode = false;
-    bool fill_mode = false;
+    // bool colored_triangle_normals_mode = false;
+    // bool colored_vertex_normals_mode = false;
+    bool wireframe = false;
+    bool fill = false;
+    FILL_MODE fill_mode = FILL_MODE::TEXTURE;
 
     std::string line; std::getline(in, line);
     while (line.size() != 0) // blank line indicates end of attributes
@@ -222,19 +223,29 @@ Object3D* parse_object3d(std::ifstream& in)
             {
                 if (mode == "fill")
                 {
-                    fill_mode = true;
+                    fill = true;
                 }
                 else if (mode == "wireframe")
                 {
-                    wireframe_mode = true;
+                    wireframe = true;
                 }
-                else if (mode == "colored_triangle_normals")
+                else if (mode == "colored_face_normals")
                 {
-                    colored_triangle_normals_mode = true;
+                    // colored_triangle_normals_mode = true;
+                    fill_mode = FILL_MODE::COLORED_FACE_NORMALS;
                 }
                 else if (mode == "colored_vertex_normals")
                 {
-                    colored_vertex_normals_mode = true;
+                    // colored_vertex_normals_mode = true;
+                    fill_mode = FILL_MODE::COLORED_VERTEX_NORMALS;
+                }
+                else if (mode == "texture")
+                {
+                    fill_mode = FILL_MODE::TEXTURE;
+                }
+                else if (mode == "vertex_colors")
+                {
+                    fill_mode = FILL_MODE::VERTEX_COLORS;
                 }
                 else
                 {
@@ -263,9 +274,10 @@ Object3D* parse_object3d(std::ifstream& in)
     obj->shading = shading;
     obj->pos = position;
     obj->scale = scale;
-    obj->colored_triangle_normals_mode = colored_triangle_normals_mode;
-    obj->colored_vertex_normals_mode = colored_vertex_normals_mode;
-    obj->wireframe_mode = wireframe_mode;
+    // obj->colored_face_normals_mode = colored_triangle_normals_mode;
+    // obj->colored_vertex_normals_mode = colored_vertex_normals_mode;
+    obj->wireframe = wireframe;
+    obj->fill = fill;
     obj->fill_mode = fill_mode;
 
     return obj;
