@@ -54,7 +54,12 @@ struct Camera
     std::string type; // refactor out later
     Vec3f pos;
     Vec3f look_at;
+
+    // orthographic
     float zoom;
+
+    // perspective
+    float fov;
 };
 
 

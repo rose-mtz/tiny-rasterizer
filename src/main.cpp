@@ -111,8 +111,8 @@ int main(int argc, char* argv[])
     Mat4x4f camera = look_at(scene.camera->pos, scene.camera->look_at, up);
 
     Mat4x4f projection;
-    if (scene.camera->type == "perspective") projection = perspective(aspect_ratio, radians(60), 1000.0);
-    else projection = orthographic(aspect_ratio, 1, 0.0, 1000.0);
+    if (scene.camera->type == "perspective") projection = perspective(aspect_ratio, scene.camera->fov, 1000.0);
+    else projection = orthographic(aspect_ratio, scene.camera->zoom, 0.0, 1000.0);
 
     Mat4x4f device = ndc_to_device(supersample_device_width, supersample_device_height);
 

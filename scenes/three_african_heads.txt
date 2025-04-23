@@ -14,10 +14,11 @@ Texture
 # Scene --------------------------
 
 Camera
-    type     orthographic
+    type     perspective
     position 0.0 0.0 2.0
     lookAt   0.0 0.0 0.0
-    zoom     1.0
+    zoom     2.0
+    fov      62.0
 
 # Center head -------------
 

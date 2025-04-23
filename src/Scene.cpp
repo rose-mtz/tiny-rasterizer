@@ -290,6 +290,7 @@ Camera* parse_camera(std::ifstream& in)
     Vec3f pos = Vec3f(0.0f, 0.0f, 10.0f);
     Vec3f look_at = Vec3f(0.0f, 0.0f, 0.0f);
     float zoom = 1.0f;
+    float fov = radians(45);
 
     std::string line; std::getline(in, line);
     while (line.size() != 0) // blank line indicates end of attributes
@@ -314,6 +315,11 @@ Camera* parse_camera(std::ifstream& in)
         {
             assert(iss >> zoom);   
         }
+        else if (attribute == "fov")
+        {
+            assert(iss >> fov);
+            fov = radians(fov);
+        }
         else
         {
             std::cout << "Error:: unkown Camera attribute " << attribute << '\n';
@@ -332,6 +338,7 @@ Camera* parse_camera(std::ifstream& in)
     cam->pos = pos;
     cam->look_at = look_at;
     cam->zoom = zoom;
+    cam->fov = fov;
 
     return cam;
 }
