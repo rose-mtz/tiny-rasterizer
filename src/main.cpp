@@ -62,7 +62,7 @@ Vec3f normal_colored(Vec3f normal);
 TGAColor to_tgacolor(Vec3f color);
 Vec3f to_vec3fcolor(TGAColor color);
 float calculate_shading(Vec3f p, Vec3f n, Material mat, Light* light, Vec3f camera);
-void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color);
+void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color, bool depth_check = true);
 void draw_triangle(Vertex v0, Vertex v1, Vertex v2, FILL_MODE fill, TGAImage* texture = nullptr);
 void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, Material* mat, FILL_MODE fill, TGAImage* texture = nullptr);
 void draw_quad(Vertex v0, Vertex v1, Vertex v2, Vertex v3, FILL_MODE fill, TGAImage* texture = nullptr);
@@ -74,16 +74,19 @@ int main(int argc, char* argv[])
         std::cout << "Error: Need to pass in scene as command-line argument.\n";
         return 0;
     }
+    Scene scene (argv[1]);
 
     // Calculate dimensions of downsampled device, supersampled device, and virtual screen
 
-    Scene scene (argv[1]);
     supersample_factor = scene.metadata->supersample_factor;
+    // Downsampled device dimensions
     device_width = scene.metadata->width_pixels;
     device_height = (scene.metadata->aspect_ratio.y * device_width) / scene.metadata->aspect_ratio.x;
     aspect_ratio = ((float) device_width) / ((float) device_height); // the one true aspect ratio
+    // Supersampled device dimensions
     supersample_device_width = device_width * supersample_factor;
     supersample_device_height = device_height * supersample_factor;
+    // Virtual screen dimensions
     virtual_screen_height = 1.0f;
     virtual_screen_width = aspect_ratio;
 
@@ -97,39 +100,28 @@ int main(int argc, char* argv[])
         color_buffer[i] = new Vec3f[supersample_device_width];
         for (int j = 0; j < supersample_device_width; j++)
         {
-            z_buffer[i][j] = -std::numeric_limits<float>::max();
+            z_buffer[i][j] = std::numeric_limits<float>::max();
             color_buffer[i][j] = scene.metadata->background_color;
         }
     }
 
     // Set up camera, projection, and device transformation matrices
 
-    Vec3f up = Vec3f(0.0f, 1.0f, 0.0f); // TODO: use should control 'up' vector
+    Vec3f up = Vec3f(0.0f, 1.0f, 0.0f); // TODO: user should control 'up' vector
     Mat4x4f camera = look_at(scene.camera->pos, scene.camera->look_at, up);
-    Mat3x3f camera_inv_trans = camera.truncated().inv().transposed();
 
     Mat4x4f projection;
-    projection.cols[0].x = scene.camera->zoom;
-    projection.cols[1].y = scene.camera->zoom;
-    if (scene.camera->type == "perspective")
-    {
-        projection.cols[2] = Vec4f(0.0f, 0.0f, 1.0f, 1.0f);
-        projection.cols[3] = Vec4f(0.0f, 0.0f, 0.0f, 0.0f);
-    }
+    if (scene.camera->type == "perspective") projection = perspective(aspect_ratio, radians(60), 1000.0);
+    else projection = orthographic(aspect_ratio, 1, 0.0, 1000.0);
 
-    float virtual_scale_x = (supersample_device_width / virtual_screen_width) / 2.0f;
-    float virtual_scale_y = (supersample_device_height / virtual_screen_height) / 2.0f;
-    Mat3x3f device (
-        Vec3f(    virtual_scale_x,                 0.0f, 0.0f),
-        Vec3f(               0.0f,      virtual_scale_y, 0.0f),
-        Vec3f(supersample_device_width / 2.0f, supersample_device_height / 2.0f, 1.0f)
-    );
+    Mat4x4f device = ndc_to_device(supersample_device_width, supersample_device_height);
 
     // Transform lights
 
+    Mat3x3f camera_inv_trans = camera.truncated().inv().transposed();
     for (int l = 0; l < scene.lights.size(); l++)
     {
-        // Transfrom: world to camera
+        // world to camera
         Light* a_light = scene.lights[l];
         a_light->pos = (camera * Vec4f(a_light->pos, 1.0f)).xyz();
         a_light->direction = (camera_inv_trans * a_light->direction).normalize();
@@ -169,18 +161,19 @@ int main(int argc, char* argv[])
                 vertices[v].uv = obj->model->uv(face[uv_or_color_index]);
                 vertices[v].color = obj->model->color(face[uv_or_color_index]);
 
-                // Transform: local to world
+                // local to world
                 vertices[v].pos_world = (world * Vec4f(obj->model->vert(face[pos_index]), 1.0f)).xyz();
                 vertices[v].norm_world = (world_inv_trans * obj->model->norm(face[norm_index])).normalize();
-                // Transform: local to world to camera
+                // local to world to camera
                 vertices[v].pos_camera = (camera_world * Vec4f(obj->model->vert(face[pos_index]), 1.0f)).xyz();
                 vertices[v].norm_camera = (camera_world_inv_trans * obj->model->norm(face[norm_index])).normalize();
-                // Transform: project to virtual screen
-                Vec4f vertex_projected = projection * Vec4f(vertices[v].pos_camera, 1.0f);
-                Vec3f vertex_virtual = Vec3f(vertex_projected.x / std::abs(vertex_projected.w), vertex_projected.y / std::abs(vertex_projected.w), vertex_projected.z);
-                // Transform: virtual screen to device screen
-                vertices[v].pos_device = device * Vec3f(vertex_virtual.x, vertex_virtual.y, 1.0f); vertices[v].pos_device.z = vertex_virtual.z;
+                // project to NDC
+                Vec3f vertex_ndc = (projection * Vec4f(vertices[v].pos_camera, 1.0f)).homogenize();
+                // NDC to device screen
+                vertices[v].pos_device = (device * Vec4f(vertex_ndc, 1.0f)).xyz();
             }
+
+            // TODO: clip triangle/quad to be within NDC
 
             // Do shading calculations
 
@@ -278,7 +271,7 @@ int main(int argc, char* argv[])
 
                 if (obj->shading == "phong")
                 {
-                    // TODO
+                    // TODO: phong shading for quads
                 }
                 else // none, flat, or gouraud shading
                 {
@@ -310,6 +303,20 @@ int main(int argc, char* argv[])
                 }
             }
         }
+
+        // Object axis (for debugging)
+
+         // Transform: project to virtual screen
+        //         Vec4f vertex_projected = projection * Vec4f(vertices[v].pos_camera, 1.0f);
+        //         Vec3f vertex_virtual = Vec3f(vertex_projected.x / std::abs(vertex_projected.w), vertex_projected.y / std::abs(vertex_projected.w), vertex_projected.z);
+
+        // // Vec4f origin_virtual = (projection * world * Vec4f(0.0f, 0.0f, 0.0f, 1.0f)); origin_virtual.x /= std::abs(origin_virtual.w); origin_virtual.y /= std::abs(origin_virtual.w);
+        // // Vec3f x_axis_endpoint = (projection * world * Vec4f(1.0f, 0.0f, 0.0f, 1.0f)).xyz();
+        // // Vec3f y_axis_endpoint = (projection * world * Vec4f(0.0f, 1.0f, 0.0f, 1.0f)).xyz();
+        // // Vec3f z_axis_endpoint = (projection * world * Vec4f(0.0f, 0.0f, 1.0f, 1.0f)).xyz();
+        // draw_line(origin, x_axis_endpoint, 1.0f, RED, false);
+        // draw_line(origin, y_axis_endpoint, 1.0f, GREEN, false);
+        // draw_line(origin, z_axis_endpoint, 1.0f, BLUE, false);
     }
 
     // Init. downsampled color buffer
@@ -589,7 +596,7 @@ float calculate_shading(Vec3f p, Vec3f n, Material mat, Light* light, Vec3f came
 
 // Device coordinates
 // No shading, or textures for lines.
-void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color)
+void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color, bool depth_check)
 {
     std::vector<LinePixel> raster_line = rasterize_line(v0.xy(), v1.xy(), thickness);
 
@@ -598,11 +605,11 @@ void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color)
         LinePixel pixel = raster_line[i];
         float interpolated_depth = v0.z * (1.0f - pixel.t) + v1.z * pixel.t;
 
-        if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
-        {
-            color_buffer[pixel.pixel.y][pixel.pixel.x] = color;
-            z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
-        }
+        // Depth check
+        if (depth_check && z_buffer[pixel.pixel.y][pixel.pixel.x] < interpolated_depth) continue; // TODO: cull fragments behind or very close to front of camera
+
+        color_buffer[pixel.pixel.y][pixel.pixel.x] = color;
+        z_buffer[pixel.pixel.y][pixel.pixel.x] = interpolated_depth;
     }
 }
 
@@ -619,7 +626,7 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, FILL_MODE fill, TGAImage* te
         float interpolated_depth = barycentric_f(v0.pos_device.z, v1.pos_device.z, v2.pos_device.z, pixel.barycentric);
 
         // Depth check
-        if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
+        if (z_buffer[pixel.pixel.y][pixel.pixel.x] > interpolated_depth) // TODO: cull fragments behind or very close to front of camera
         {
             // Figure out fragment color
             Vec3f pixel_color;
@@ -662,7 +669,7 @@ void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, 
         float interpolated_depth = barycentric_f(v0.pos_device.z, v1.pos_device.z, v2.pos_device.z, pixel.barycentric);
 
         // Depth check
-        if (z_buffer[pixel.pixel.y][pixel.pixel.x] <= interpolated_depth)
+        if (z_buffer[pixel.pixel.y][pixel.pixel.x] > interpolated_depth) // TODO: cull fragments behind or very close to front of camera
         {
             Vec3f interpolated_point = barycentric_vec3f(v0.pos_camera, v1.pos_camera, v2.pos_camera, pixel.barycentric); // camera space
             Vec3f interpolated_normal = barycentric_vec3f(v0.norm_camera, v1.norm_camera, v2.norm_camera, pixel.barycentric).normalize(); // camera space
@@ -719,11 +726,8 @@ void draw_quad(Vertex v0, Vertex v1, Vertex v2, Vertex v3, FILL_MODE fill, TGAIm
         float interpolated_depth = v0.pos_device.z * pix.alpha + v1.pos_device.z * pix.beta + v2.pos_device.z * pix.gamma + v3.pos_device.z * pix.lambda;
 
         // Depth check
-        if (z_buffer[pix.pixel.y][pix.pixel.x] <= interpolated_depth)
+        if (z_buffer[pix.pixel.y][pix.pixel.x] > interpolated_depth) // TODO: cull fragments behind or very close to front of camera
         {
-            // Calculate shading
-            Vec3f interpolated_light = Vec3f::hadamard_product(v0.shading, Vec3f(pix.alpha)) + Vec3f::hadamard_product(v1.shading, Vec3f(pix.beta)) + Vec3f::hadamard_product(v2.shading, Vec3f(pix.gamma)) + Vec3f::hadamard_product(v3.shading, Vec3f(pix.lambda));
-
             // Figure out pixel color
 
             Vec3f pixel_color;
@@ -744,6 +748,7 @@ void draw_quad(Vertex v0, Vertex v1, Vertex v2, Vertex v3, FILL_MODE fill, TGAIm
             }
 
             // Shade pixel color
+            Vec3f interpolated_light = Vec3f::hadamard_product(v0.shading, Vec3f(pix.alpha)) + Vec3f::hadamard_product(v1.shading, Vec3f(pix.beta)) + Vec3f::hadamard_product(v2.shading, Vec3f(pix.gamma)) + Vec3f::hadamard_product(v3.shading, Vec3f(pix.lambda));
             Vec3f shaded_pixel_color = Vec3f::hadamard_product(pixel_color, interpolated_light);
 
             color_buffer[pix.pixel.y][pix.pixel.x] = shaded_pixel_color;

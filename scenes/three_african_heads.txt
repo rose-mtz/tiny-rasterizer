@@ -17,7 +17,7 @@ Camera
     type     orthographic
     position 0.0 0.0 2.0
     lookAt   0.0 0.0 0.0
-    zoom     1.1
+    zoom     1.0
 
 # Center head -------------
 

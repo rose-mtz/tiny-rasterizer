@@ -2,6 +2,7 @@
 #include <cassert>
 
 
+
 float cross(Vec2f a, Vec2f b)
 {
     return a.x * b.y - a.y * b.x;
@@ -130,4 +131,61 @@ Vec2f barycentric_vec2f(Vec2f a, Vec2f b, Vec2f c, Vec3f weights)
 float barycentric_f(float a, float b, float c, Vec3f weights)
 {
     return (a * weights.x) + (b * weights.y) + (c * weights.z);
+}
+
+Mat4x4f perspective(float t, float r, float b, float l, float n, float f)
+{
+    /**
+     * CREDIT: Song Ho Ahn
+     * SOURCE: https://www.songho.ca/opengl/gl_projectionmatrix.html
+     */
+
+    return Mat4x4f(
+        (2.0f*n)/(r-l),           0.0f,  (r+l)/(r-l),              0.0f,
+                  0.0f, (2.0f*n)/(t-b),  (t+b)/(t-b),              0.0f,
+                  0.0f,           0.0f, -(f+n)/(f-n), (-2.0f*f*n)/(f-n),
+                  0.0f,           0.0f,        -1.0f,              0.0f
+    );
+}
+
+Mat4x4f orthographic(float t, float r, float b, float l, float n, float f)
+{
+    /**
+     * CREDIT: Song Ho Ahn
+     * SOURCE: https://www.songho.ca/opengl/gl_projectionmatrix.html
+     */
+
+    return Mat4x4f(
+        2.0f/(r-l),       0.0f,        0.0f, -(r+l)/(r-l),
+              0.0f, 2.0f/(t-b),        0.0f, -(t+b)/(t-b),
+              0.0f,       0.0f, -2.0f/(f-n), -(f+n)/(f-n),
+              0.0f,       0.0f,        0.0f,         1.0f
+    );
+}
+
+Mat4x4f perspective(float aspect, float fov, float far)
+{
+    return perspective(0.5f, aspect/2.0f, -0.5f, -aspect/2.0f, (aspect/2.0f)/tan(fov/2), far);
+}
+
+Mat4x4f orthographic(float aspect, float zoom, float near, float far)
+{
+    return orthographic(0.5f * zoom, aspect/2.0f * zoom, -0.5f * zoom, -aspect/2.0f * zoom, near, far);
+}
+
+Mat4x4f ndc_to_device(float device_width, float device_height)
+{
+    // Center NDC at device center
+    // Then, scale NDC to equal dimensions of device
+    return Mat4x4f(
+        device_width/4.0f,               0.0f, 0.0f,  device_width/2.0f,
+                     0.0f, device_height/4.0f, 0.0f, device_height/2.0f,
+                     0.0f,               0.0f, 1.0f,               0.0f,
+                     0.0f,               0.0f, 0.0f,               1.0f
+    );
+}
+
+float radians(float degree)
+{
+    return degree * (PI / 180.0f);
 }

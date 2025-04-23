@@ -9,6 +9,7 @@
  * REPO: https://github.com/ssloy/tinyrenderer/tree/a175be75a8a9a773bdfae7543a372e3bc859e02f
  */
 
+const float PI = 3.14159265358979f;
 
 template <class t> struct Vec2
 {
@@ -86,7 +87,8 @@ template <class t> struct Vec4
 	inline Vec4<t> operator -(const Vec4<t> &v) const { return Vec4<t>(x-v.x, y-v.y, z-v.z, w-v.w); }
 	inline Vec4<t> operator *(float f)          const { return Vec4<t>(x*f, y*f, z*f, w*f); }
 
-	Vec3<t> xyz() const { return Vec3<t>(x, y, z); }
+	Vec3<t> xyz()        const { return Vec3<t>(x, y, z);       }
+	Vec3<t> homogenize() const { return Vec3<t>(x/w, y/w, z/w); }
 
 	template <class > friend std::ostream& operator<<(std::ostream& s, Vec4<t>& v);
 };
@@ -137,6 +139,23 @@ struct Mat3x3f
         mat[1][2] = z.y;
         mat[2][2] = z.z;
     }
+	Mat3x3f(float a, float b, float c,
+			float d, float e, float f,
+			float g, float h, float i
+	)
+	{
+		mat[0][0] = a;
+		mat[0][1] = b;
+		mat[0][2] = c;
+
+		mat[1][0] = d;
+		mat[1][1] = e;
+		mat[1][2] = f;
+
+		mat[2][0] = g;
+		mat[2][1] = h;
+		mat[2][2] = i;
+	}
 
 	Vec3f operator*(const Vec3f& v) const
 	{
@@ -248,6 +267,18 @@ struct Mat4x4f
 		}
 	}
 
+	Mat4x4f(float a, float b, float c, float d,
+			float e, float f, float g, float h,
+			float i, float j, float k, float l,
+			float m, float n, float o, float p
+	)
+	{
+		cols[0] = Vec4f(a, e, i, m);
+		cols[1] = Vec4f(b, f, j, n);
+		cols[2] = Vec4f(c, g, k, o);
+		cols[3] = Vec4f(d, h, l, p);
+	}
+
 	Vec4f operator*(const Vec4f& v) const
 	{
 		return (cols[0] * v.x) + (cols[1] * v.y) + (cols[2] * v.z) + (cols[3] * v.w); 
@@ -270,6 +301,14 @@ struct Mat4x4f
 	{
 		return Mat3x3f(cols[0].xyz(), cols[1].xyz(), cols[2].xyz());
 	}
+
+	void print()
+	{
+		std::cout << "(" << cols[0].x << ", " << cols[1].x << ", " << cols[2].x << ", " << cols[3].x << ")\n";
+		std::cout << "(" << cols[0].y << ", " << cols[1].y << ", " << cols[2].y << ", " << cols[3].y << ")\n";
+		std::cout << "(" << cols[0].z << ", " << cols[1].z << ", " << cols[2].z << ", " << cols[3].z << ")\n";
+		std::cout << "(" << cols[0].w << ", " << cols[1].w << ", " << cols[2].w << ", " << cols[3].w << ")\n";
+	}
 };
 
 float cross(Vec2f a, Vec2f b);
@@ -285,9 +324,14 @@ Vec2f clampedVec2f(Vec2f v, float min, float max);
 
 Mat4x4f get_transformation(Vec3f pos, float scale);
 Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up);
+Mat4x4f perspective(float aspect, float fov, float far);
+Mat4x4f orthographic(float aspect, float zoom, float near, float far);
+Mat4x4f ndc_to_device(float device_width, float device_height);
 
 float power(float a, int b);
 
 Vec3f barycentric_vec3f(Vec3f a, Vec3f b, Vec3f c, Vec3f weights);
 Vec2f barycentric_vec2f(Vec2f a, Vec2f b, Vec2f c, Vec3f weights);
 float barycentric_f    (float a, float b, float c, Vec3f weights);
+
+float radians(float degree);

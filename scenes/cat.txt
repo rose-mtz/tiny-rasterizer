@@ -17,13 +17,13 @@ Camera
     type     perspective
     position 0.0 -30.0 30.0
     lookAt   0.0 0.0 10.0
-    zoom     3.0
+    zoom     1.0
 
 # Cat -------------
 
 Material
-    k_d 0.6
-    k_s 0.3
+    k_d 0.7
+    k_s 0.1
     k_a 0.1
     shininess 10
 
@@ -32,15 +32,15 @@ Object3D
     texture 0
     material 0
     position 0.0 0.0 0.0
-    scale 0.5
-    shading none
+    scale 0.6
+    shading gouraud
     modes fill texture
 
 # Lights --------------------------
 
 Light
-    type point
-    direction 0.0 0.0 -1.0
+    type directional
+    direction 0.0 1.0 -1.0
     color 1.0 1.0 1.0
-    position 0.0 0.0 2.0
-    intensity 4.0
+    position 0.0 -30.0 30.0
+    intensity 40.0
