@@ -107,13 +107,14 @@ int main(int argc, char* argv[])
 
     // Set up camera, projection, and device transformation matrices
 
+    // Camera
     Vec3f up = Vec3f(0.0f, 1.0f, 0.0f); // TODO: user should control 'up' vector
     Mat4x4f camera = look_at(scene.camera->pos, scene.camera->look_at, up);
-
+    // Projection
     Mat4x4f projection;
     if (scene.camera->type == "perspective") projection = perspective(aspect_ratio, scene.camera->fov, 1000.0);
     else projection = orthographic(aspect_ratio, scene.camera->zoom, 0.0, 1000.0);
-
+    // Device
     Mat4x4f device = ndc_to_device(supersample_device_width, supersample_device_height);
 
     // Transform lights
@@ -304,20 +305,24 @@ int main(int argc, char* argv[])
             }
         }
 
-        // Object axis (for debugging)
-
-         // Transform: project to virtual screen
-        //         Vec4f vertex_projected = projection * Vec4f(vertices[v].pos_camera, 1.0f);
-        //         Vec3f vertex_virtual = Vec3f(vertex_projected.x / std::abs(vertex_projected.w), vertex_projected.y / std::abs(vertex_projected.w), vertex_projected.z);
-
-        // // Vec4f origin_virtual = (projection * world * Vec4f(0.0f, 0.0f, 0.0f, 1.0f)); origin_virtual.x /= std::abs(origin_virtual.w); origin_virtual.y /= std::abs(origin_virtual.w);
-        // // Vec3f x_axis_endpoint = (projection * world * Vec4f(1.0f, 0.0f, 0.0f, 1.0f)).xyz();
-        // // Vec3f y_axis_endpoint = (projection * world * Vec4f(0.0f, 1.0f, 0.0f, 1.0f)).xyz();
-        // // Vec3f z_axis_endpoint = (projection * world * Vec4f(0.0f, 0.0f, 1.0f, 1.0f)).xyz();
-        // draw_line(origin, x_axis_endpoint, 1.0f, RED, false);
-        // draw_line(origin, y_axis_endpoint, 1.0f, GREEN, false);
-        // draw_line(origin, z_axis_endpoint, 1.0f, BLUE, false);
+        // Local axis (for debugging)
+        Vec3f world_origin = (device * Vec4f((projection * (camera * world * Vec4f(0.0f, 0.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+        Vec3f world_x_axis_endpoint = (device * Vec4f((projection * (camera * world * Vec4f(1.0f, 0.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+        Vec3f world_y_axis_endpoint = (device * Vec4f((projection * (camera * world * Vec4f(0.0f, 1.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+        Vec3f world_z_axis_endpoint = (device * Vec4f((projection * (camera * world * Vec4f(0.0f, 0.0f, 1.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+        draw_line(world_origin, world_x_axis_endpoint, 10.0f, Vec3f(0.5f, 0.0f, 0.0f), false);
+        draw_line(world_origin, world_y_axis_endpoint, 10.0f, Vec3f(0.0f, 0.5f, 0.0f), false);
+        draw_line(world_origin, world_z_axis_endpoint, 10.0f, Vec3f(0.0f, 0.0f, 0.5f), false);
     }
+
+    // World axis (for debugging)
+    Vec3f world_origin = (device * Vec4f((projection * (camera * Vec4f(0.0f, 0.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+    Vec3f world_x_axis_endpoint = (device * Vec4f((projection * (camera * Vec4f(1.0f, 0.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+    Vec3f world_y_axis_endpoint = (device * Vec4f((projection * (camera * Vec4f(0.0f, 1.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+    Vec3f world_z_axis_endpoint = (device * Vec4f((projection * (camera * Vec4f(0.0f, 0.0f, 1.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+    draw_line(world_origin, world_x_axis_endpoint, 10.0f, RED, false);
+    draw_line(world_origin, world_y_axis_endpoint, 10.0f, GREEN, false);
+    draw_line(world_origin, world_z_axis_endpoint, 10.0f, BLUE, false);
 
     // Init. downsampled color buffer
     Vec3f** downsampled_color_buffer = new Vec3f*[device_height];
