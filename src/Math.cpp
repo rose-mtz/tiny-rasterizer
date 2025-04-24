@@ -83,19 +83,6 @@ float clampedf(float a, float min, float max)
     }
 }
 
-
-Mat4x4f get_transformation(Vec3f pos, float scale)
-{
-    Mat4x4f mat;
-    mat.cols[0] = mat.cols[0] * scale;
-    mat.cols[1] = mat.cols[1] * scale;
-    mat.cols[2] = mat.cols[2] * scale;
-    mat.cols[3] = Vec4f(pos, 1.0f);
-
-    return mat;
-}
-
-
 Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up)
 {
     Vec3f z = (pos - at).normalize(); // 'backwards' of camera
@@ -188,4 +175,54 @@ Mat4x4f ndc_to_device(float device_width, float device_height)
 float radians(float degree)
 {
     return degree * (PI / 180.0f);
+}
+
+Mat4x4f rotation_x(float theta)
+{
+    return Mat4x4f(
+        1,          0,           0, 0,
+        0, cos(theta), -sin(theta), 0,
+        0, sin(theta),  cos(theta), 0,
+        0,          0,           0, 1
+    );
+}
+
+Mat4x4f rotation_y(float theta)
+{
+    return Mat4x4f(
+         cos(theta), 0, sin(theta), 0,
+                  0, 1,          0, 0,
+        -sin(theta), 0, cos(theta), 0,
+                  0, 0,          0, 1
+    );
+}
+
+Mat4x4f rotation_z(float theta)
+{
+    return Mat4x4f(
+        cos(theta), -sin(theta), 0, 0,
+        sin(theta),  cos(theta), 0, 0,
+                 0,           0, 1, 0,
+                 0,           0, 0, 1
+    );
+}
+
+Mat4x4f translation(Vec3f v)
+{
+    return Mat4x4f(
+        1, 0, 0, v.x,
+        0, 1, 0, v.y,
+        0, 0, 1, v.z,
+        0, 0, 0, 1
+    );
+}
+
+Mat4x4f scale(Vec3f scale)
+{
+    return Mat4x4f(
+        scale.x,       0,       0, 0,
+              0, scale.y,       0, 0,
+              0,       0, scale.z, 0,
+              0,       0,       0, 1
+    );
 }

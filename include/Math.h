@@ -234,6 +234,14 @@ struct Mat3x3f
 
 		return trans;
 	}
+
+
+	void print()
+	{
+		std::cout << "(" << mat[0][0] << ", " << mat[0][1] << ", " << mat[0][2] << ")\n";
+		std::cout << "(" << mat[1][0] << ", " << mat[1][1] << ", " << mat[1][2] << ")\n";
+		std::cout << "(" << mat[2][0] << ", " << mat[2][1] << ", " << mat[2][2] << ")\n";
+	}
 };
 
 
@@ -322,7 +330,6 @@ float clampedf(float a, float min, float max);
 Vec3f clampedVec3f(Vec3f v, float min, float max);
 Vec2f clampedVec2f(Vec2f v, float min, float max);
 
-Mat4x4f get_transformation(Vec3f pos, float scale);
 Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up);
 Mat4x4f perspective(float aspect, float fov, float far);
 Mat4x4f orthographic(float aspect, float zoom, float near, float far);
@@ -335,3 +342,9 @@ Vec2f barycentric_vec2f(Vec2f a, Vec2f b, Vec2f c, Vec3f weights);
 float barycentric_f    (float a, float b, float c, Vec3f weights);
 
 float radians(float degree);
+
+Mat4x4f rotation_x(float theta);
+Mat4x4f rotation_y(float theta);
+Mat4x4f rotation_z(float theta);
+Mat4x4f translation(Vec3f v);
+Mat4x4f scale(Vec3f scale);

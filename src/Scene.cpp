@@ -177,6 +177,9 @@ Object3D* parse_object3d(std::ifstream& in)
     bool wireframe = false;
     bool fill = false;
     FILL_MODE fill_mode = FILL_MODE::TEXTURE;
+    float yaw = 0;
+    float pitch = 0;
+    float roll = 0;
 
     std::string line; std::getline(in, line);
     while (line.size() != 0) // blank line indicates end of attributes
@@ -254,6 +257,14 @@ Object3D* parse_object3d(std::ifstream& in)
                 }
             }
         }
+        else if (attribute == "rotations")
+        {
+            // rotations <yaw> <pitch> <roll> 
+            // degrees 
+            assert(iss >> yaw);
+            assert(iss >> pitch);
+            assert(iss >> roll);
+        }
         else
         {
             std::cout << "Error:: unkown Object3D attribute " << attribute << '\n';
@@ -279,6 +290,9 @@ Object3D* parse_object3d(std::ifstream& in)
     obj->wireframe = wireframe;
     obj->fill = fill;
     obj->fill_mode = fill_mode;
+    obj->yaw = radians(yaw);
+    obj->pitch = radians(pitch);
+    obj->roll = radians(roll);
 
     return obj;
 }

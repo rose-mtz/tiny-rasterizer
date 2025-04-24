@@ -34,6 +34,7 @@ Object3D
     material 0
     position 0.0 0.0 0.0
     scale 1.0
+    rotations 0 0 0
     shading phong
     modes fill
 
@@ -51,7 +52,8 @@ Object3D
     material 1
     position -1.5 0.0 0.0
     scale 1.0
-    shading phong
+    rotations 45 0 0
+    shading flat
     modes fill
 
 # Right head -------------
@@ -68,7 +70,8 @@ Object3D
     material 2
     position 1.5 0.0 0.0
     scale 1.0
-    shading phong
+    rotations -45 0 0
+    shading gouraud
     modes fill
 
 # Lights --------------------------
@@ -78,4 +81,4 @@ Light
     direction 0.0 0.0 -1.0
     color 1.0 1.0 1.0
     position 0.0 0.0 2.0
-    intensity 4.0
+    intensity 6

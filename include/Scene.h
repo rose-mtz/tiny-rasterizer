@@ -36,8 +36,13 @@ struct Object3D
     TGAImage* texture;
     Material* mat;
     std::string shading;
+
+    // Transformations
     Vec3f pos;
-    float scale;
+    float scale; // TODO: make it vec3
+    float yaw;
+    float pitch;
+    float roll;
 
     // Modes
     // bool colored_face_normals_mode;

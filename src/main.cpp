@@ -137,8 +137,8 @@ int main(int argc, char* argv[])
         // Set up transformation matrices of this object
 
         // From local to world
-        Mat4x4f world = get_transformation(obj->pos, obj->scale);
-        Mat3x3f world_inv_trans = world.truncated().inv().transposed();
+        Mat4x4f world = translation(obj->pos) * rotation_y(obj->yaw) * rotation_x(obj->pitch) * rotation_z(obj->roll) * scale(Vec3f(obj->scale));
+        Mat3x3f world_inv_trans = world.truncated().inv().transposed(); // OPTIMIZE: M^-1 = M^T
         // From local to world to camera
         Mat4x4f camera_world = camera * world;
         Mat3x3f camera_world_inv_trans = camera_world.truncated().inv().transposed();
@@ -223,7 +223,7 @@ int main(int argc, char* argv[])
             // Back face culling calculation
 
             Vec3f triangle_normal_device = triangle_normal(Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, 0.0f), Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, 0.0f), Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, 0.0f));
-            bool back_facing = triangle_normal_device == Vec3f(0.0f, 0.0f, -1.0f); // TODO: use more numerically stable calculation
+            bool back_facing = triangle_normal_device == Vec3f(0.0f, 0.0f, -1.0f); // ACCURACY: use more numerically stable calculation
 
             // Render face to device buffer
 
@@ -266,7 +266,7 @@ int main(int argc, char* argv[])
                     }
                 }
             }
-            else if (obj->fill) // && !back_facing)
+            else if (obj->fill && vertices.size() == 4) // && !back_facing)
             {
                 // Fill quad
 
