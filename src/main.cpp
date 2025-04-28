@@ -141,13 +141,14 @@ int main(int argc, char* argv[])
 
     Mat3x3f skybox_rotation_inv = (rotation_y(scene.skybox->yaw) * rotation_x(scene.skybox->pitch) * rotation_z(scene.skybox->roll)).truncated().transposed(); // M^-1 = M^t
     float half_length_of_cube = 1.0f / 2.0f; // cube to project on to, so a face of it will be in [0,1]x[0,1] 
+    float skybox_near = (aspect_ratio/2.0f)/tan(scene.skybox->fov/2.0f);
     for (int y = 0; y < supersample_device_height; y++)
     {
         for (int x = 0; x < supersample_device_width; x++)
         {
             Vec3f pixel_device = Vec3f(0.5f + x, 0.5f + y, 0.0f);
             Vec3f pixel_virtual = (device_inv * Vec4f(pixel_device, 1.0f)).xyz();
-            Vec3f pixel_camera = Vec3f(pixel_virtual.x, pixel_virtual.y, -near); // Assumes orthonormal basis for camera
+            Vec3f pixel_camera = Vec3f(pixel_virtual.x, pixel_virtual.y, -skybox_near); // Assumes orthonormal basis for camera
 
             Vec3f ray = (skybox_rotation_inv * pixel_camera).normalize();
 
@@ -471,6 +472,9 @@ int main(int argc, char* argv[])
 
 Vec3f sample_texture(Vec2f uv, TGAImage* texture)
 {
+    assert(uv.x >= 0.0f && uv.x <= 1.0f);
+    assert(uv.y >= 0.0f && uv.y <= 1.0f);
+
     Vec2i pixel = Vec2i((texture->get_width() - 1) * uv.x, (texture->get_height() - 1) * uv.y);
     return to_vec3fcolor(texture->get(pixel.x, pixel.y));
 }

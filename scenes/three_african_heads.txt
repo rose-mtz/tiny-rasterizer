@@ -17,7 +17,7 @@ Camera
     type     perspective
     position 0.0 0.0 2.0
     lookAt   0.0 0.0 0.0
-    zoom     2.0
+    zoom     1.5
     fov      70.0
 
 Skybox
@@ -28,6 +28,7 @@ Skybox
     top    ./assets/skybox/top.tga
     bottom ./assets/skybox/bottom.tga
     rotations 180 20 10
+    fov 90
 
 # Center head -------------
 

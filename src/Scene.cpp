@@ -40,6 +40,7 @@ SkyBox* parse_skybox(std::ifstream& in)
     float yaw = 0.0f;
     float pitch = 0.0f;
     float roll = 0.0f;
+    float fov = 90.0f;
 
     std::string line; std::getline(in, line);
     while (line.size() != 0) // Empty line indicates end of attributes
@@ -97,6 +98,10 @@ SkyBox* parse_skybox(std::ifstream& in)
             assert(iss >> pitch);
             assert(iss >> roll);
         }
+        else if (attribute == "fov")
+        {
+            assert(iss >> fov);
+        }
         else
         {
             std::cout << "Error:: unkown Image_Metadata attribute " << attribute << '\n';
@@ -117,7 +122,7 @@ SkyBox* parse_skybox(std::ifstream& in)
     skybox->textures[LEFT] = left;
     skybox->textures[TOP] = top;
     skybox->textures[BOTTOM] = bottom;
-
+    skybox->fov = radians(fov);
     skybox->yaw = radians(yaw);
     skybox->pitch = radians(pitch);
     skybox->roll = radians(roll);

@@ -89,7 +89,7 @@ enum FACE { FRONT = 0, RIGHT, BACK, LEFT, TOP, BOTTOM }; // Skybox faces
 struct SkyBox
 {
     TGAImage* textures[6];
-
+    float fov;
     float yaw;
     float pitch;
     float roll;   
