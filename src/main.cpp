@@ -64,6 +64,7 @@ void draw_line(Vec3f v0, Vec3f v1, float thickness, Vec3f color, bool depth_chec
 void draw_triangle(Vertex v0, Vertex v1, Vertex v2, FILL_MODE fill, TGAImage* texture = nullptr);
 void draw_triangle(Vertex v0, Vertex v1, Vertex v2, std::vector<Light*> lights, Material* mat, FILL_MODE fill, TGAImage* texture = nullptr);
 void draw_quad(Vertex v0, Vertex v1, Vertex v2, Vertex v3, FILL_MODE fill, TGAImage* texture = nullptr);
+Vec3f sample_texture(Vec2f uv, TGAImage* texture);
 
 int main(int argc, char* argv[])
 {
@@ -155,96 +156,62 @@ int main(int argc, char* argv[])
             float absY = std::abs(ray.y);
             float absZ = std::abs(ray.z);
 
+            FACE face;
+            Vec2f projected;
+            Vec2f uv (0.0f, 0.0f);
+
             // Front face
             if (absZ >= absX && absZ >= absY && ray.z < 0.0f)
             {
                 // Project on to face of cube
-                Vec2f projected;
                 projected.x = (ray.x / std::abs(ray.z)) * half_length_of_cube;
                 projected.y = (ray.y / std::abs(ray.z)) * half_length_of_cube;
-
-                // cube face is [0,1]x[0,1], so just translate origin
-                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
-
-                Vec2i pixel_to_sample = Vec2i((scene.skybox->front->get_width() - 1) * uv.x, (scene.skybox->front->get_height() - 1) * uv.y);
-                Vec3f pixel_color = to_vec3fcolor(scene.skybox->front->get(pixel_to_sample.x, pixel_to_sample.y));
-                color_buffer[y][x] = pixel_color;
+                face = FRONT;
             }
             // Back face
             else if (absZ >= absX && absZ >= absY && ray.z > 0.0f)
             {
                 // Project on to face of cube
-                Vec2f projected;
-                projected.x = -(ray.x / std::abs(ray.z)) * half_length_of_cube;
+                projected.x = -(ray.x / std::abs(ray.z)) * half_length_of_cube; // flip so face is correct orientation
                 projected.y = (ray.y / std::abs(ray.z)) * half_length_of_cube;
-
-                // cube face is [0,1]x[0,1], so just translate origin
-                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
-
-                Vec2i pixel_to_sample = Vec2i((scene.skybox->back->get_width() - 1) * uv.x, (scene.skybox->back->get_height() - 1) * uv.y);
-                Vec3f pixel_color = to_vec3fcolor(scene.skybox->back->get(pixel_to_sample.x, pixel_to_sample.y));
-                color_buffer[y][x] = pixel_color;
+                face = BACK;
             }
             // Top face
             else if (absY >= absX && absY >= absZ && ray.y > 0.0f)
             {
                 // Project on to face of cube
-                Vec2f projected;
                 projected.x = (ray.x / std::abs(ray.y)) * half_length_of_cube;
                 projected.y = (ray.z / std::abs(ray.y)) * half_length_of_cube;
-
-                // cube face is [0,1]x[0,1], so just translate origin
-                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
-
-                Vec2i pixel_to_sample = Vec2i((scene.skybox->top->get_width() - 1) * uv.x, (scene.skybox->top->get_height() - 1) * uv.y);
-                Vec3f pixel_color = to_vec3fcolor(scene.skybox->top->get(pixel_to_sample.x, pixel_to_sample.y));
-                color_buffer[y][x] = pixel_color;
+                face = TOP;
             }
             // Bottom face
             else if (absY >= absX && absY >= absZ && ray.y < 0.0f)
             {
                 // Project on to face of cube
-                Vec2f projected;
                 projected.x = (ray.x / std::abs(ray.y)) * half_length_of_cube;
                 projected.y = -(ray.z / std::abs(ray.y)) * half_length_of_cube; // flip so face is correct orientation
-
-                // cube face is [0,1]x[0,1], so just translate origin
-                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
-
-                Vec2i pixel_to_sample = Vec2i((scene.skybox->bottom->get_width() - 1) * uv.x, (scene.skybox->bottom->get_height() - 1) * uv.y);
-                Vec3f pixel_color = to_vec3fcolor(scene.skybox->bottom->get(pixel_to_sample.x, pixel_to_sample.y));
-                color_buffer[y][x] = pixel_color;
+                face = BOTTOM;
             }
             // Right face
             else if (absX >= absY && absX >= absZ && ray.x > 0.0f)
             {
                 // Project on to face of cube
-                Vec2f projected;
                 projected.x = (ray.z / std::abs(ray.x)) * half_length_of_cube;
                 projected.y = (ray.y / std::abs(ray.x)) * half_length_of_cube;
-
-                // cube face is [0,1]x[0,1], so just translate origin
-                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
-
-                Vec2i pixel_to_sample = Vec2i((scene.skybox->right->get_width() - 1) * uv.x, (scene.skybox->right->get_height() - 1) * uv.y);
-                Vec3f pixel_color = to_vec3fcolor(scene.skybox->right->get(pixel_to_sample.x, pixel_to_sample.y));
-                color_buffer[y][x] = pixel_color;
+                face = RIGHT;
             }
             // Left face
-            else if (absX >= absY && absX >= absZ && ray.x < 0.0f)
+            else // if (absX >= absY && absX >= absZ && ray.x < 0.0f)
             {
                 // Project on to face of cube
-                Vec2f projected;
                 projected.x = -(ray.z / std::abs(ray.x)) * half_length_of_cube; // flip so face is correct orientation
                 projected.y = (ray.y / std::abs(ray.x)) * half_length_of_cube;
-
-                // cube face is [0,1]x[0,1], so just translate origin
-                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
-
-                Vec2i pixel_to_sample = Vec2i((scene.skybox->left->get_width() - 1) * uv.x, (scene.skybox->left->get_height() - 1) * uv.y);
-                Vec3f pixel_color = to_vec3fcolor(scene.skybox->left->get(pixel_to_sample.x, pixel_to_sample.y));
-                color_buffer[y][x] = pixel_color;
+                face = LEFT;
             }
+
+            // cube face is [0,1]x[0,1], so just translate origin
+            uv = projected + Vec2f(0.5f, 0.5f);
+            color_buffer[y][x] = sample_texture(uv, scene.skybox->textures[face]);
         }
     }
 
@@ -499,6 +466,13 @@ int main(int argc, char* argv[])
     tga_image.write_tga_file(scene.metadata->save_location.c_str());
 
     return 0;
+}
+
+
+Vec3f sample_texture(Vec2f uv, TGAImage* texture)
+{
+    Vec2i pixel = Vec2i((texture->get_width() - 1) * uv.x, (texture->get_height() - 1) * uv.y);
+    return to_vec3fcolor(texture->get(pixel.x, pixel.y));
 }
 
 

@@ -84,14 +84,11 @@ struct Light
 };
 
 
+enum FACE { FRONT = 0, RIGHT, BACK, LEFT, TOP, BOTTOM }; // Skybox faces
+
 struct SkyBox
 {
-    TGAImage* front;
-    TGAImage* right;
-    TGAImage* back;
-    TGAImage* left;
-    TGAImage* top;
-    TGAImage* bottom;
+    TGAImage* textures[6];
 
     float yaw;
     float pitch;

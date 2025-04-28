@@ -111,12 +111,13 @@ SkyBox* parse_skybox(std::ifstream& in)
     }
 
     SkyBox* skybox = new SkyBox();
-    skybox->front = front;
-    skybox->back = back;
-    skybox->right = right;
-    skybox->left = left;
-    skybox->top = top;
-    skybox->bottom = bottom;
+    skybox->textures[FRONT] = front;
+    skybox->textures[BACK] = back;
+    skybox->textures[RIGHT] = right;
+    skybox->textures[LEFT] = left;
+    skybox->textures[TOP] = top;
+    skybox->textures[BOTTOM] = bottom;
+
     skybox->yaw = radians(yaw);
     skybox->pitch = radians(pitch);
     skybox->roll = radians(roll);
