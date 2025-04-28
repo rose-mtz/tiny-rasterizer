@@ -84,6 +84,21 @@ struct Light
 };
 
 
+struct SkyBox
+{
+    TGAImage* front;
+    TGAImage* right;
+    TGAImage* back;
+    TGAImage* left;
+    TGAImage* top;
+    TGAImage* bottom;
+
+    float yaw;
+    float pitch;
+    float roll;   
+};
+
+
 class Scene
 {
 public:
@@ -91,6 +106,7 @@ public:
     std::vector<Object3D*> objects;
     Camera* camera;
     ImageMetadata* metadata;
+    SkyBox* skybox;
 
     Scene(const char* filename);
     ~Scene();

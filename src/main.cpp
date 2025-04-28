@@ -20,8 +20,6 @@ int supersample_device_width;
 int supersample_device_height;
 float aspect_ratio;
 
-float virtual_screen_width;
-float virtual_screen_height;
 
 float** z_buffer = nullptr;
 Vec3f** color_buffer = nullptr;
@@ -86,9 +84,27 @@ int main(int argc, char* argv[])
     // Supersampled device dimensions
     supersample_device_width = device_width * supersample_factor;
     supersample_device_height = device_height * supersample_factor;
-    // Virtual screen dimensions
-    virtual_screen_height = 1.0f;
-    virtual_screen_width = aspect_ratio;
+
+    // Actual virtual screen dimensions
+    float t, r, b, l, near, far;
+    if (scene.camera->type == "perspective")
+    {
+        t = 0.5f;
+        r = aspect_ratio/2.0f;
+        b = -0.5f;
+        l = -aspect_ratio/2.0f;
+        near = (aspect_ratio/2.0f)/tan(scene.camera->fov/2.0f);
+        far = 100.0f;
+    }
+    else // orthographic
+    {
+        t = 0.5f * scene.camera->zoom;
+        r = aspect_ratio/2.0f * scene.camera->zoom;
+        b = -0.5f * scene.camera->zoom;
+        l = -aspect_ratio/2.0f * scene.camera->zoom;
+        near = 0.0f;
+        far = 100.0f;
+    }
 
     // Initialize depth, and color buffer
 
@@ -112,10 +128,125 @@ int main(int argc, char* argv[])
     Mat4x4f camera = look_at(scene.camera->pos, scene.camera->look_at, up);
     // Projection
     Mat4x4f projection;
-    if (scene.camera->type == "perspective") projection = perspective(aspect_ratio, scene.camera->fov, 1000.0);
-    else projection = orthographic(aspect_ratio, scene.camera->zoom, 0.0, 1000.0);
-    // Device
-    Mat4x4f device = ndc_to_device(supersample_device_width, supersample_device_height);
+    if (scene.camera->type == "perspective") projection = perspective(t,r,b,l,near,far);
+    else projection = orthographic(t,r,b,l,near,far);
+    // Device (from NDC)
+    Mat4x4f device = translation(Vec3f(supersample_device_width/2.0f, supersample_device_height/2.0f, 0.0f)) * scale(Vec3f(supersample_device_width/4.0f, supersample_device_height/4.0f, 1.0f));
+
+    // From device to virtual
+    float virtual_screen_width = r - l;
+    float virtual_screen_height = t - b;
+    Mat4x4f device_inv = scale(Vec3f(4.0/supersample_device_width, 4.0f/supersample_device_height, 1.0f)) * translation(Vec3f(-supersample_device_width/2.0f, -supersample_device_height/2.0f, 0.0f));
+
+    Mat3x3f skybox_rotation_inv = (rotation_y(scene.skybox->yaw) * rotation_x(scene.skybox->pitch) * rotation_z(scene.skybox->roll)).truncated().transposed(); // M^-1 = M^t
+    float half_length_of_cube = 1.0f / 2.0f; // cube to project on to, so a face of it will be in [0,1]x[0,1] 
+    for (int y = 0; y < supersample_device_height; y++)
+    {
+        for (int x = 0; x < supersample_device_width; x++)
+        {
+            Vec3f pixel_device = Vec3f(0.5f + x, 0.5f + y, 0.0f);
+            Vec3f pixel_virtual = (device_inv * Vec4f(pixel_device, 1.0f)).xyz();
+            Vec3f pixel_camera = Vec3f(pixel_virtual.x, pixel_virtual.y, -near); // Assumes orthonormal basis for camera
+
+            Vec3f ray = (skybox_rotation_inv * pixel_camera).normalize();
+
+            // Find the dominant axis (the largest absolute value in ray.x, ray.y, ray.z)
+            float absX = std::abs(ray.x);
+            float absY = std::abs(ray.y);
+            float absZ = std::abs(ray.z);
+
+            // Front face
+            if (absZ >= absX && absZ >= absY && ray.z < 0.0f)
+            {
+                // Project on to face of cube
+                Vec2f projected;
+                projected.x = (ray.x / std::abs(ray.z)) * half_length_of_cube;
+                projected.y = (ray.y / std::abs(ray.z)) * half_length_of_cube;
+
+                // cube face is [0,1]x[0,1], so just translate origin
+                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
+
+                Vec2i pixel_to_sample = Vec2i((scene.skybox->front->get_width() - 1) * uv.x, (scene.skybox->front->get_height() - 1) * uv.y);
+                Vec3f pixel_color = to_vec3fcolor(scene.skybox->front->get(pixel_to_sample.x, pixel_to_sample.y));
+                color_buffer[y][x] = pixel_color;
+            }
+            // Back face
+            else if (absZ >= absX && absZ >= absY && ray.z > 0.0f)
+            {
+                // Project on to face of cube
+                Vec2f projected;
+                projected.x = -(ray.x / std::abs(ray.z)) * half_length_of_cube;
+                projected.y = (ray.y / std::abs(ray.z)) * half_length_of_cube;
+
+                // cube face is [0,1]x[0,1], so just translate origin
+                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
+
+                Vec2i pixel_to_sample = Vec2i((scene.skybox->back->get_width() - 1) * uv.x, (scene.skybox->back->get_height() - 1) * uv.y);
+                Vec3f pixel_color = to_vec3fcolor(scene.skybox->back->get(pixel_to_sample.x, pixel_to_sample.y));
+                color_buffer[y][x] = pixel_color;
+            }
+            // Top face
+            else if (absY >= absX && absY >= absZ && ray.y > 0.0f)
+            {
+                // Project on to face of cube
+                Vec2f projected;
+                projected.x = (ray.x / std::abs(ray.y)) * half_length_of_cube;
+                projected.y = (ray.z / std::abs(ray.y)) * half_length_of_cube;
+
+                // cube face is [0,1]x[0,1], so just translate origin
+                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
+
+                Vec2i pixel_to_sample = Vec2i((scene.skybox->top->get_width() - 1) * uv.x, (scene.skybox->top->get_height() - 1) * uv.y);
+                Vec3f pixel_color = to_vec3fcolor(scene.skybox->top->get(pixel_to_sample.x, pixel_to_sample.y));
+                color_buffer[y][x] = pixel_color;
+            }
+            // Bottom face
+            else if (absY >= absX && absY >= absZ && ray.y < 0.0f)
+            {
+                // Project on to face of cube
+                Vec2f projected;
+                projected.x = (ray.x / std::abs(ray.y)) * half_length_of_cube;
+                projected.y = -(ray.z / std::abs(ray.y)) * half_length_of_cube; // flip so face is correct orientation
+
+                // cube face is [0,1]x[0,1], so just translate origin
+                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
+
+                Vec2i pixel_to_sample = Vec2i((scene.skybox->bottom->get_width() - 1) * uv.x, (scene.skybox->bottom->get_height() - 1) * uv.y);
+                Vec3f pixel_color = to_vec3fcolor(scene.skybox->bottom->get(pixel_to_sample.x, pixel_to_sample.y));
+                color_buffer[y][x] = pixel_color;
+            }
+            // Right face
+            else if (absX >= absY && absX >= absZ && ray.x > 0.0f)
+            {
+                // Project on to face of cube
+                Vec2f projected;
+                projected.x = (ray.z / std::abs(ray.x)) * half_length_of_cube;
+                projected.y = (ray.y / std::abs(ray.x)) * half_length_of_cube;
+
+                // cube face is [0,1]x[0,1], so just translate origin
+                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
+
+                Vec2i pixel_to_sample = Vec2i((scene.skybox->right->get_width() - 1) * uv.x, (scene.skybox->right->get_height() - 1) * uv.y);
+                Vec3f pixel_color = to_vec3fcolor(scene.skybox->right->get(pixel_to_sample.x, pixel_to_sample.y));
+                color_buffer[y][x] = pixel_color;
+            }
+            // Left face
+            else if (absX >= absY && absX >= absZ && ray.x < 0.0f)
+            {
+                // Project on to face of cube
+                Vec2f projected;
+                projected.x = -(ray.z / std::abs(ray.x)) * half_length_of_cube; // flip so face is correct orientation
+                projected.y = (ray.y / std::abs(ray.x)) * half_length_of_cube;
+
+                // cube face is [0,1]x[0,1], so just translate origin
+                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
+
+                Vec2i pixel_to_sample = Vec2i((scene.skybox->left->get_width() - 1) * uv.x, (scene.skybox->left->get_height() - 1) * uv.y);
+                Vec3f pixel_color = to_vec3fcolor(scene.skybox->left->get(pixel_to_sample.x, pixel_to_sample.y));
+                color_buffer[y][x] = pixel_color;
+            }
+        }
+    }
 
     // Transform lights
 
@@ -225,7 +356,7 @@ int main(int argc, char* argv[])
             Vec3f triangle_normal_device = triangle_normal(Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, 0.0f), Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, 0.0f), Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, 0.0f));
             bool back_facing = triangle_normal_device == Vec3f(0.0f, 0.0f, -1.0f); // ACCURACY: use more numerically stable calculation
 
-            // Render face to device buffer
+            // Render face to device buffer 
 
             if (obj->fill && vertices.size() == 3 && !back_facing)
             {
@@ -306,23 +437,23 @@ int main(int argc, char* argv[])
         }
 
         // Local axis (for debugging)
-        Vec3f world_origin = (device * Vec4f((projection * (camera * world * Vec4f(0.0f, 0.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
-        Vec3f world_x_axis_endpoint = (device * Vec4f((projection * (camera * world * Vec4f(1.0f, 0.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
-        Vec3f world_y_axis_endpoint = (device * Vec4f((projection * (camera * world * Vec4f(0.0f, 1.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
-        Vec3f world_z_axis_endpoint = (device * Vec4f((projection * (camera * world * Vec4f(0.0f, 0.0f, 1.0f, 1.0f))).homogenize(), 1.0f)).xyz();
-        draw_line(world_origin, world_x_axis_endpoint, 10.0f, Vec3f(0.5f, 0.0f, 0.0f), false);
-        draw_line(world_origin, world_y_axis_endpoint, 10.0f, Vec3f(0.0f, 0.5f, 0.0f), false);
-        draw_line(world_origin, world_z_axis_endpoint, 10.0f, Vec3f(0.0f, 0.0f, 0.5f), false);
+        // Vec3f world_origin = (device * Vec4f((projection * (camera * world * Vec4f(0.0f, 0.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+        // Vec3f world_x_axis_endpoint = (device * Vec4f((projection * (camera * world * Vec4f(1.0f, 0.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+        // Vec3f world_y_axis_endpoint = (device * Vec4f((projection * (camera * world * Vec4f(0.0f, 1.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+        // Vec3f world_z_axis_endpoint = (device * Vec4f((projection * (camera * world * Vec4f(0.0f, 0.0f, 1.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+        // draw_line(world_origin, world_x_axis_endpoint, 10.0f, Vec3f(0.5f, 0.0f, 0.0f), false);
+        // draw_line(world_origin, world_y_axis_endpoint, 10.0f, Vec3f(0.0f, 0.5f, 0.0f), false);
+        // draw_line(world_origin, world_z_axis_endpoint, 10.0f, Vec3f(0.0f, 0.0f, 0.5f), false);
     }
 
     // World axis (for debugging)
-    Vec3f world_origin = (device * Vec4f((projection * (camera * Vec4f(0.0f, 0.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
-    Vec3f world_x_axis_endpoint = (device * Vec4f((projection * (camera * Vec4f(1.0f, 0.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
-    Vec3f world_y_axis_endpoint = (device * Vec4f((projection * (camera * Vec4f(0.0f, 1.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
-    Vec3f world_z_axis_endpoint = (device * Vec4f((projection * (camera * Vec4f(0.0f, 0.0f, 1.0f, 1.0f))).homogenize(), 1.0f)).xyz();
-    draw_line(world_origin, world_x_axis_endpoint, 10.0f, RED, false);
-    draw_line(world_origin, world_y_axis_endpoint, 10.0f, GREEN, false);
-    draw_line(world_origin, world_z_axis_endpoint, 10.0f, BLUE, false);
+    // Vec3f world_origin = (device * Vec4f((projection * (camera * Vec4f(0.0f, 0.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+    // Vec3f world_x_axis_endpoint = (device * Vec4f((projection * (camera * Vec4f(1.0f, 0.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+    // Vec3f world_y_axis_endpoint = (device * Vec4f((projection * (camera * Vec4f(0.0f, 1.0f, 0.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+    // Vec3f world_z_axis_endpoint = (device * Vec4f((projection * (camera * Vec4f(0.0f, 0.0f, 1.0f, 1.0f))).homogenize(), 1.0f)).xyz();
+    // draw_line(world_origin, world_x_axis_endpoint, 10.0f, RED, false);
+    // draw_line(world_origin, world_y_axis_endpoint, 10.0f, GREEN, false);
+    // draw_line(world_origin, world_z_axis_endpoint, 10.0f, BLUE, false);
 
     // Init. downsampled color buffer
     Vec3f** downsampled_color_buffer = new Vec3f*[device_height];

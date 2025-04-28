@@ -28,6 +28,103 @@ bool parse_bool(std::istringstream& iss)
 }
 
 
+SkyBox* parse_skybox(std::ifstream& in)
+{
+    // Defaults
+    TGAImage* front = nullptr;
+    TGAImage* right = nullptr;
+    TGAImage* back = nullptr;
+    TGAImage* left = nullptr;
+    TGAImage* top = nullptr;
+    TGAImage* bottom = nullptr;
+    float yaw = 0.0f;
+    float pitch = 0.0f;
+    float roll = 0.0f;
+
+    std::string line; std::getline(in, line);
+    while (line.size() != 0) // Empty line indicates end of attributes
+    {
+        std::istringstream iss(line.c_str());
+        std::string attribute; iss >> attribute;
+
+        if (attribute == "front")
+        {
+            std::string filename; assert(iss >> filename);
+            front = new TGAImage();
+            front->read_tga_file(filename.c_str());
+            front->flip_vertically();
+        }
+        else if (attribute == "back")
+        {
+            std::string filename; assert(iss >> filename);
+            back = new TGAImage();
+            back->read_tga_file(filename.c_str());
+            back->flip_vertically();
+        }
+        else if (attribute == "right")
+        {
+            std::string filename; assert(iss >> filename);
+            right = new TGAImage();
+            right->read_tga_file(filename.c_str());
+            right->flip_vertically();
+        }
+        else if (attribute == "left")
+        {
+            std::string filename; assert(iss >> filename);
+            left = new TGAImage();
+            left->read_tga_file(filename.c_str());
+            left->flip_vertically();
+        }
+        else if (attribute == "top")
+        {
+            std::string filename; assert(iss >> filename);
+            top = new TGAImage();
+            top->read_tga_file(filename.c_str());
+            top->flip_vertically();
+        }
+        else if (attribute == "bottom")
+        {
+            std::string filename; assert(iss >> filename);
+            bottom = new TGAImage();
+            bottom->read_tga_file(filename.c_str());
+            bottom->flip_vertically();
+        }
+        else if (attribute == "rotations")
+        {
+            // rotations <yaw> <pitch> <roll> 
+            // degrees 
+            assert(iss >> yaw);
+            assert(iss >> pitch);
+            assert(iss >> roll);
+        }
+        else
+        {
+            std::cout << "Error:: unkown Image_Metadata attribute " << attribute << '\n';
+            assert(false);
+        }
+
+        if (in.eof()) // was last line of file
+        {
+            break;
+        }
+        std::getline(in, line); // get next line
+    }
+
+    SkyBox* skybox = new SkyBox();
+    skybox->front = front;
+    skybox->back = back;
+    skybox->right = right;
+    skybox->left = left;
+    skybox->top = top;
+    skybox->bottom = bottom;
+    skybox->yaw = radians(yaw);
+    skybox->pitch = radians(pitch);
+    skybox->roll = radians(roll);
+
+    return skybox;
+}
+
+
 ImageMetadata* parse_image_metadata(std::ifstream& in)
 {
     // Defaults
@@ -459,6 +556,10 @@ Scene::Scene(const char* filename)
         else if (type == "Image_Metadata")
         {
             this->metadata = parse_image_metadata(in);
+        }
+        else if (type == "Skybox")
+        {
+            this->skybox = parse_skybox(in);
         }
         else if (type == "#") // comment
         {

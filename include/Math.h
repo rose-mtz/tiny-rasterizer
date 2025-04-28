@@ -331,9 +331,8 @@ Vec3f clampedVec3f(Vec3f v, float min, float max);
 Vec2f clampedVec2f(Vec2f v, float min, float max);
 
 Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up);
-Mat4x4f perspective(float aspect, float fov, float far);
-Mat4x4f orthographic(float aspect, float zoom, float near, float far);
-Mat4x4f ndc_to_device(float device_width, float device_height);
+Mat4x4f perspective(float t, float r, float b, float l, float n, float f);
+Mat4x4f orthographic(float t, float r, float b, float l, float n, float f);
 
 float power(float a, int b);
 
