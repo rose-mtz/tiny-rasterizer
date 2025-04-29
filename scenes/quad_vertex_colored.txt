@@ -11,10 +11,11 @@ Model
 # Scene --------------------------
 
 Camera
-    type     perspective
+    type     orthographic
     position 0.0 0.0 8.0
     lookAt   0.0 0.0 0.0
-    zoom     1.0
+    zoom     8.0
+    fov 70
 
 # Quad -------------
 

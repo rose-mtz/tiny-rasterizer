@@ -103,7 +103,7 @@ public:
     std::vector<Object3D*> objects;
     Camera* camera;
     ImageMetadata* metadata;
-    SkyBox* skybox;
+    SkyBox* skybox = nullptr;
 
     Scene(const char* filename);
     ~Scene();

@@ -58,7 +58,8 @@ template <class t> struct Vec3
 	inline Vec3<t> operator * (float f)          const { return Vec3<t>(x*f, y*f, z*f); }
 	inline t       operator * (const Vec3<t> &v) const { return x*v.x + y*v.y + z*v.z; }
 	inline bool    operator ==(const Vec3<t> &v) const { return x == v.x && y == v.y && z == v.z; }
-	inline void    operator +=(const Vec3<t> &v)       { x += v.x; y += v.y; z += v.z; };
+	inline void    operator +=(const Vec3<t> &v)       { x += v.x; y += v.y; z += v.z; }
+	inline Vec3<t> operator - ()                 const { return Vec3<t>(-x, -y, -z); }              
 
 	Vec2<t>   xy()      const  { return Vec2<t>(x, y); }
 	float     length () const  { return std::sqrt(x*x+y*y+z*z); }
@@ -285,6 +286,18 @@ struct Mat4x4f
 		cols[1] = Vec4f(b, f, j, n);
 		cols[2] = Vec4f(c, g, k, o);
 		cols[3] = Vec4f(d, h, l, p);
+	}
+
+	Mat4x4f(Mat3x3f mat, Vec4f w = Vec4f(0.0f, 0.0f, 0.0f, 1.0f))
+	{
+		Vec4f x = Vec4f(mat.col(0), 0.0f);
+		Vec4f y = Vec4f(mat.col(1), 0.0f);
+		Vec4f z = Vec4f(mat.col(2), 0.0f);
+
+		cols[0] = x;
+		cols[1] = y;
+		cols[2] = z;
+		cols[3] = w;
 	}
 
 	Vec4f operator*(const Vec4f& v) const

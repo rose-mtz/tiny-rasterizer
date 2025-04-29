@@ -27,8 +27,8 @@ Skybox
     left   ./assets/skybox/left.tga
     top    ./assets/skybox/top.tga
     bottom ./assets/skybox/bottom.tga
-    rotations 180 20 10
-    fov 90
+    rotations 180 00 00
+    fov 120
 
 # Center head -------------
 
