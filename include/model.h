@@ -32,6 +32,7 @@ public:
 
 	// v/t/n, ...
 	std::vector<int> face(int idx);
+	bool clockwise_winding;
 };
 
 

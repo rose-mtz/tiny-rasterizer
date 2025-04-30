@@ -333,7 +333,6 @@ struct Mat4x4f
 };
 
 float cross(Vec2f a, Vec2f b);
-
 Vec3f reflect(Vec3f n, Vec3f l);
 Vec3f triangle_normal(Vec3f a, Vec3f b, Vec3f c);
 
@@ -343,17 +342,16 @@ float clampedf(float a, float min, float max);
 Vec3f clampedVec3f(Vec3f v, float min, float max);
 Vec2f clampedVec2f(Vec2f v, float min, float max);
 
-Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up);
-Mat4x4f perspective(float t, float r, float b, float l, float n, float f);
-Mat4x4f orthographic(float t, float r, float b, float l, float n, float f);
-
 float power(float a, int b);
+float radians(float degree);
 
 Vec3f barycentric_vec3f(Vec3f a, Vec3f b, Vec3f c, Vec3f weights);
 Vec2f barycentric_vec2f(Vec2f a, Vec2f b, Vec2f c, Vec3f weights);
 float barycentric_f    (float a, float b, float c, Vec3f weights);
 
-float radians(float degree);
+Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up);
+Mat4x4f perspective(float t, float r, float b, float l, float n, float f);
+Mat4x4f orthographic(float t, float r, float b, float l, float n, float f);
 
 Mat4x4f rotation_x(float theta);
 Mat4x4f rotation_y(float theta);

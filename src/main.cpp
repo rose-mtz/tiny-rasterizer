@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <limits>
+#include <chrono>
 
 #include "tgaimage.h"
 #include "model.h"
@@ -39,6 +40,11 @@ struct Vertex
     Vec3f pos_world;
 };
 
+struct VirtualScreen
+{
+    float top, right, bottom, left, near, far;
+};
+
 
 Vec3f    get_colored_normal(Vec3f normal);
 TGAColor to_tga_color(Vec3f color);
@@ -53,6 +59,8 @@ void draw_quad(Vertex v0, Vertex v1, Vertex v2, Vertex v3, FILL_MODE fill, TGAIm
 
 int main(int argc, char* argv[])
 {
+    auto start = std::chrono::high_resolution_clock::now();
+
     if (argc != 2)
     {
         std::cout << "Error: expected only 1 command line argument (scene file). \n";
@@ -61,58 +69,64 @@ int main(int argc, char* argv[])
     Scene scene (argv[1]);
 
     // Downsampled device dimensions
-    device_width = scene.metadata->width_pixels;
+    device_width  = scene.metadata->width_pixels;
     device_height = (scene.metadata->aspect_ratio.y * device_width) / scene.metadata->aspect_ratio.x;
-    aspect_ratio = ((float) device_width) / ((float) device_height); // the one true aspect ratio
+    aspect_ratio  = ((float) device_width) / ((float) device_height); // the one true aspect ratio
 
     // Supersampled device dimensions
-    supersample_factor = scene.metadata->supersample_factor;
-    supersample_device_width = device_width * supersample_factor;
+    supersample_factor        = scene.metadata->supersample_factor;
+    supersample_device_width  = device_width * supersample_factor;
     supersample_device_height = device_height * supersample_factor;
 
     // Virtual screen dimensions
-    float t, r, b, l, near, far;
+    VirtualScreen virtual_screen;
     if (scene.camera->type == "perspective")
     {
-        t = 0.5f;
-        r = aspect_ratio/2.0f;
-        b = -0.5f;
-        l = -aspect_ratio/2.0f;
-        near = (aspect_ratio/2.0f)/tan(scene.camera->fov/2.0f);
-        far = 100.0f;
+        virtual_screen.top    = 0.5f;
+        virtual_screen.right  = aspect_ratio/2.0f;
+        virtual_screen.bottom = -0.5f;
+        virtual_screen.left   = -aspect_ratio/2.0f;
+        virtual_screen.near   = (aspect_ratio/2.0f)/tan(scene.camera->fov/2.0f);
+        virtual_screen.far    = 100.0f;
     }
     else // orthographic
     {
-        t = 0.5f * scene.camera->zoom;
-        r = aspect_ratio/2.0f * scene.camera->zoom;
-        b = -0.5f * scene.camera->zoom;
-        l = -aspect_ratio/2.0f * scene.camera->zoom;
-        near = 0.0f;
-        far = 100.0f;
+        virtual_screen.top    = 0.5f * scene.camera->zoom;
+        virtual_screen.right  = aspect_ratio/2.0f * scene.camera->zoom;
+        virtual_screen.bottom = -0.5f * scene.camera->zoom;
+        virtual_screen.left   = -aspect_ratio/2.0f * scene.camera->zoom;
+        virtual_screen.near   = 0.0f;
+        virtual_screen.far    = 100.0f;
     }
 
     // Initialize depth, and color buffer
-    z_buffer = new float*[supersample_device_height];
     color_buffer = new Vec3f*[supersample_device_height];
     for (int i = 0; i < supersample_device_height; i++)
     {
-        z_buffer[i] = new float[supersample_device_width];
         color_buffer[i] = new Vec3f[supersample_device_width];
         for (int j = 0; j < supersample_device_width; j++)
         {
-            z_buffer[i][j] = std::numeric_limits<float>::max(); // positive infinity is far away
             color_buffer[i][j] = scene.metadata->background_color;
         }
     }
 
+    z_buffer = new float*[supersample_device_height];
+    for (int i = 0; i < supersample_device_height; i++)
+    {
+        z_buffer[i] = new float[supersample_device_width];
+        for (int j = 0; j < supersample_device_width; j++)
+        {
+            z_buffer[i][j] = std::numeric_limits<float>::max(); // positive infinity is far away
+        }
+    }
+
     // Camera
-    Vec3f up = Vec3f(0.0f, 1.0f, 0.0f); // TODO: user should control 'up' vector
-    Mat4x4f camera = look_at(scene.camera->pos, scene.camera->look_at, up);
+    Mat4x4f camera = look_at(scene.camera->pos, scene.camera->look_at, scene.camera->up);
 
     // Projection
     Mat4x4f projection;
-    if (scene.camera->type == "perspective") projection = perspective(t,r,b,l,near,far);
-    else projection = orthographic(t,r,b,l,near,far);
+    if (scene.camera->type == "perspective") projection = perspective(virtual_screen.top, virtual_screen.right, virtual_screen.bottom, virtual_screen.left, virtual_screen.near, virtual_screen.far);
+    else projection = orthographic(virtual_screen.top, virtual_screen.right, virtual_screen.bottom, virtual_screen.left, virtual_screen.near, virtual_screen.far);
 
     // Device (from NDC)
     float ndc_width  = 2.0f;
@@ -120,99 +134,6 @@ int main(int argc, char* argv[])
     Vec3f device_center    = Vec3f(supersample_device_width / 2.0f, supersample_device_height / 2.0f, 0.0f);
     Vec3f ndc_scale_factor = Vec3f((supersample_device_width / ndc_width) / 2.0f, (supersample_device_height / ndc_height) / 2.0f, 1.0f);
     Mat4x4f device = translation(device_center) * scale(ndc_scale_factor);
-
-    if (scene.skybox != nullptr)
-    {
-        // For orthographic it won't be actual dimensions of virtual screen
-        // But, this is better since skybox won't be tied to 'zoom' of orthographic camera
-        float skybox_virtual_screen_height = 1.0f;
-        float skybox_virtual_screen_width = aspect_ratio;
-        float skybox_virtual_screen_near = (aspect_ratio/2.0f)/tan(scene.skybox->fov/2.0f);
-
-        // From device to ndc to virtual screen to skybox space
-        Mat4x4f device_inv = scale(Vec3f(1.0f/ndc_scale_factor.x, 1.0f/ndc_scale_factor.y, 1.0f)) * translation(-device_center);
-        Mat4x4f ndc_inv = scale(Vec3f((skybox_virtual_screen_width / ndc_width) / 2.0f, (skybox_virtual_screen_height / ndc_height) / 2.0f, 1.0f));
-        Mat4x4f camera_for_skybox = Mat4x4f(camera.truncated().transposed()) * translation(Vec3f(0.0f, 0.0f, -skybox_virtual_screen_near));
-        Mat4x4f skybox_rotation_inv = rotation_z(-scene.skybox->roll) * rotation_x(-scene.skybox->pitch) * rotation_y(-scene.skybox->yaw);
-
-        // Cube is 1x1x1
-        // Face of cube is 1x1
-        float half_length_of_cube = 1.0f / 2.0f;
-
-        // Project points on virtual screen to points on the cube
-        // Then create ray vector, use ray to figure out which cube face to sample and where to sample it
-        
-        for (int y = 0; y < supersample_device_height; y++)
-        {
-            for (int x = 0; x < supersample_device_width; x++)
-            {
-                Vec3f pixel_center = Vec3f(0.5f + x, 0.5f + y, 0.0f);
-                Vec3f ray = (skybox_rotation_inv * camera_for_skybox * ndc_inv * device_inv * Vec4f(pixel_center, 1.0f)).xyz().normalize();
-
-                // Find the dominant axis (the largest absolute value in ray.x, ray.y, ray.z)
-                float absX = std::abs(ray.x);
-                float absY = std::abs(ray.y);
-                float absZ = std::abs(ray.z);
-
-                FACE face;
-                Vec2f projected;
-                Vec2f uv (0.0f, 0.0f);
-
-                // Front face
-                if (absZ >= absX && absZ >= absY && ray.z < 0.0f)
-                {
-                    // Project on to face of cube
-                    projected.x = (ray.x / std::abs(ray.z)) * half_length_of_cube;
-                    projected.y = (ray.y / std::abs(ray.z)) * half_length_of_cube;
-                    face = FRONT;
-                }
-                // Back face
-                else if (absZ >= absX && absZ >= absY && ray.z > 0.0f)
-                {
-                    // Project on to face of cube
-                    projected.x = -(ray.x / std::abs(ray.z)) * half_length_of_cube; // flip so face is correct orientation
-                    projected.y = (ray.y / std::abs(ray.z)) * half_length_of_cube;
-                    face = BACK;
-                }
-                // Top face
-                else if (absY >= absX && absY >= absZ && ray.y > 0.0f)
-                {
-                    // Project on to face of cube
-                    projected.x = (ray.x / std::abs(ray.y)) * half_length_of_cube;
-                    projected.y = (ray.z / std::abs(ray.y)) * half_length_of_cube;
-                    face = TOP;
-                }
-                // Bottom face
-                else if (absY >= absX && absY >= absZ && ray.y < 0.0f)
-                {
-                    // Project on to face of cube
-                    projected.x = (ray.x / std::abs(ray.y)) * half_length_of_cube;
-                    projected.y = -(ray.z / std::abs(ray.y)) * half_length_of_cube; // flip so face is correct orientation
-                    face = BOTTOM;
-                }
-                // Right face
-                else if (absX >= absY && absX >= absZ && ray.x > 0.0f)
-                {
-                    // Project on to face of cube
-                    projected.x = (ray.z / std::abs(ray.x)) * half_length_of_cube;
-                    projected.y = (ray.y / std::abs(ray.x)) * half_length_of_cube;
-                    face = RIGHT;
-                }
-                // Left face
-                else // if (absX >= absY && absX >= absZ && ray.x < 0.0f)
-                {
-                    // Project on to face of cube
-                    projected.x = -(ray.z / std::abs(ray.x)) * half_length_of_cube; // flip so face is correct orientation
-                    projected.y = (ray.y / std::abs(ray.x)) * half_length_of_cube;
-                    face = LEFT;
-                }
-
-                // cube face is [0,1]x[0,1], so just translate origin
-                uv = projected + Vec2f(0.5f, 0.5f);
-                color_buffer[y][x] = sample_texture(uv, scene.skybox->textures[face]);
-            }
-        }
-    }
 
     // Transform lights
 
@@ -249,21 +170,21 @@ int main(int argc, char* argv[])
             std::vector<Vertex> vertices (face.size() / 3);
 
             // Do transformations on each vertex
-
             for (int v = 0; v < vertices.size(); v++)
             {
-                int pos_index  = (v * 3);
-                int uv_or_color_index   = (v * 3) + 1;
-                int norm_index = (v * 3) + 2;
+                int pos_index   = (v * 3);
+                int uv_index    = (v * 3) + 1;
+                int color_index = (v * 3) + 1;
+                int norm_index  = (v * 3) + 2;
 
-                vertices[v].uv = obj->model->uv(face[uv_or_color_index]);
-                vertices[v].color = obj->model->color(face[uv_or_color_index]);
+                vertices[v].uv    = obj->model->uv(face[uv_index]);
+                vertices[v].color = obj->model->color(face[color_index]);
 
                 // local to world
-                vertices[v].pos_world = (world * Vec4f(obj->model->vert(face[pos_index]), 1.0f)).xyz();
+                vertices[v].pos_world  = (world * Vec4f(obj->model->vert(face[pos_index]), 1.0f)).xyz();
                 vertices[v].norm_world = (world_inv_trans * obj->model->norm(face[norm_index])).normalize();
                 // local to world to camera
-                vertices[v].pos_camera = (camera_world * Vec4f(obj->model->vert(face[pos_index]), 1.0f)).xyz();
+                vertices[v].pos_camera  = (camera_world * Vec4f(obj->model->vert(face[pos_index]), 1.0f)).xyz();
                 vertices[v].norm_camera = (camera_world_inv_trans * obj->model->norm(face[norm_index])).normalize();
                 // project to NDC
                 Vec3f vertex_ndc = (projection * Vec4f(vertices[v].pos_camera, 1.0f)).homogenize();
@@ -271,122 +192,112 @@ int main(int argc, char* argv[])
                 vertices[v].pos_device = (device * Vec4f(vertex_ndc, 1.0f)).xyz();
             }
 
-            // TODO: clip triangle/quad to be within NDC
 
-            // Do shading calculations
-
-            if (obj->shading == "none")
+            // Back face culling calculation
+            Vec3f triangle_normal_device;
+            if (obj->model->clockwise_winding)
             {
-                for (int v = 0; v < vertices.size(); v++) vertices[v].shading = Vec3f(1.0f, 1.0f, 1.0f);
+                triangle_normal_device = triangle_normal(Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, 0.0f), Vec3f(vertices[vertices.size() - 1].pos_device.x, vertices[vertices.size() - 1].pos_device.y, 0.0f), Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, 0.0f));
             }
-            else if (obj->shading == "flat")
+            else
             {
-                // Calculate point and normal at center of face
-                Vec3f face_normal_camera = triangle_normal(vertices[0].pos_camera, vertices[1].pos_camera, vertices[2].pos_camera);
-                Vec3f face_center_camera (0.0f);
-                for (int v = 0; v < vertices.size(); v++) face_center_camera += Vec3f::hadamard_product(vertices[v].pos_camera, Vec3f(1.0f / vertices.size())); // weight is either 1/3 for triangles or 1/4 for quads
+                triangle_normal_device = triangle_normal(Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, 0.0f), Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, 0.0f), Vec3f(vertices[vertices.size() - 1].pos_device.x, vertices[vertices.size() - 1].pos_device.y, 0.0f));
+            }
+            bool back_facing = triangle_normal_device == Vec3f(0.0f, 0.0f, 1.0f);
 
-                // Calculate shading contribution of each light source
+
+            // Do shading for none, flat, or gouraud
+            if (obj->shading == SHADING_TYPE::NONE && !back_facing)
+            {
+                for (int v = 0; v < vertices.size(); v++)
+                { 
+                    vertices[v].shading = Vec3f(1.0f, 1.0f, 1.0f);
+                }
+            }
+            else if (obj->shading == SHADING_TYPE::FLAT && !back_facing)
+            {
+                Vec3f face_normal_camera = triangle_normal(vertices[0].pos_camera, vertices[1].pos_camera, vertices[2].pos_camera); // assumes 'flat' quads
+                Vec3f face_center_camera (0.0f);
+                Vec3f barycenter_weight = Vec3f(1.0f / vertices.size()); // 1/3 for triangles, and 1/4 for quads
+                for (int v = 0; v < vertices.size(); v++) 
+                {
+                    face_center_camera += Vec3f::hadamard_product(vertices[v].pos_camera, barycenter_weight);
+                }
+
                 Vec3f total_shading (0.0f);
                 for (int l = 0; l < scene.lights.size(); l++)
                 {
-                    // Shading done in camera space
                     Light* a_light = scene.lights[l];
-                    float shading = calculate_shading(face_center_camera, face_normal_camera, *obj->mat, a_light, Vec3f(0.0f));
+                    float shading  = calculate_shading(face_center_camera, face_normal_camera, *obj->mat, a_light, Vec3f(0.0f)); // shading done in camera space
                     total_shading += Vec3f::hadamard_product(a_light->color, Vec3f(shading));
                 }
                 total_shading = clampedVec3f(total_shading, 0.0f, 1.0f);
 
-                for (int v = 0; v < vertices.size(); v++) vertices[v].shading = total_shading;
-            }
-            else if (obj->shading == "gouraud")
-            {
-                // Calculate total shading for each vertex
                 for (int v = 0; v < vertices.size(); v++)
                 {
-                    // Calculate shading contribution of each light source
+                    vertices[v].shading = total_shading;
+                }
+            }
+            else if (obj->shading == SHADING_TYPE::GOURAUD && !back_facing)
+            {
+                for (int v = 0; v < vertices.size(); v++)
+                {
                     Vec3f total_shading (0.0f);
                     for (int l = 0; l < scene.lights.size(); l++)
                     {
-                        // Shading done in camera space
                         Light* a_light = scene.lights[l];
-                        float shading = calculate_shading(vertices[v].pos_camera, vertices[v].norm_camera, *obj->mat, a_light, Vec3f(0.0f));
-                        total_shading = Vec3f::hadamard_product(a_light->color, Vec3f(shading));
+                        float shading  = calculate_shading(vertices[v].pos_camera, vertices[v].norm_camera, *obj->mat, a_light, Vec3f(0.0f)); // shading done in camera space
+                        total_shading  = Vec3f::hadamard_product(a_light->color, Vec3f(shading));
                     }
                     vertices[v].shading = clampedVec3f(total_shading, 0.0f, 1.0f);
                 }
             }
 
-            // Back face culling calculation
 
-            Vec3f triangle_normal_device = triangle_normal(Vec3f(vertices[0].pos_device.x, vertices[0].pos_device.y, 0.0f), Vec3f(vertices[1].pos_device.x, vertices[1].pos_device.y, 0.0f), Vec3f(vertices[2].pos_device.x, vertices[2].pos_device.y, 0.0f));
-            bool back_facing = triangle_normal_device == Vec3f(0.0f, 0.0f, -1.0f); // ACCURACY: use more numerically stable calculation
+            // Special case fill
+            if (obj->fill_mode == FILL_MODE::COLORED_FACE_NORMALS && !back_facing)
+            {
+                Vec3f triangle_normal_world;
+                if (obj->model->clockwise_winding)
+                {
+                    triangle_normal_world = triangle_normal(vertices[0].pos_world, vertices[vertices.size() - 1].pos_world, vertices[1].pos_world);
+                }
+                else
+                {
+                    triangle_normal_world = triangle_normal(vertices[0].pos_world, vertices[1].pos_world, vertices[vertices.size() - 1].pos_world);
+                }
+                Vec3f colored_triangle_normal = get_colored_normal(triangle_normal_world);
 
-            // Render face to device buffer 
+                for (int v = 0; v < vertices.size(); v++)
+                {
+                    vertices[v].color = colored_triangle_normal;
+                }
 
+                obj->fill_mode = FILL_MODE::VERTEX_COLORS;
+            }
+
+
+            // Render face to device buffers 
             if (obj->fill && vertices.size() == 3 && !back_facing)
             {
-                // Fill triangle
-
-                if (obj->shading == "phong")
+                if (obj->shading == SHADING_TYPE::PHONG)
                 {
-                    if (obj->fill_mode == FILL_MODE::COLORED_FACE_NORMALS) // Colored normals fill
-                    {
-                        // Set colored face normal as vertex colors
-                        Vec3f triangle_normal_world = triangle_normal(vertices[0].pos_world, vertices[1].pos_world, vertices[2].pos_world);
-                        Vec3f colored_triangle_normal = get_colored_normal(triangle_normal_world);
-                        vertices[0].color = colored_triangle_normal;
-                        vertices[1].color = colored_triangle_normal;
-                        vertices[2].color = colored_triangle_normal;
-                        draw_triangle(vertices[0], vertices[1], vertices[2], scene.lights, obj->mat, FILL_MODE::VERTEX_COLORS);
-                    }
-                    else // Texture or vertex color fill
-                    {
-                        draw_triangle(vertices[0], vertices[1], vertices[2], scene.lights, obj->mat, obj->fill_mode, obj->texture);
-                    }
+                    draw_triangle(vertices[0], vertices[1], vertices[2], scene.lights, obj->mat, obj->fill_mode, obj->texture);
                 }
                 else // none, flat, or gouraud shading
                 {
-                    if (obj->fill_mode == FILL_MODE::COLORED_FACE_NORMALS) // Colored normals fill
-                    {
-                        // Set colored face normal as vertex colors
-                        Vec3f triangle_normal_world = triangle_normal(vertices[0].pos_world, vertices[1].pos_world, vertices[2].pos_world);
-                        Vec3f colored_triangle_normal = get_colored_normal(triangle_normal_world);
-                        vertices[0].color = colored_triangle_normal;
-                        vertices[1].color = colored_triangle_normal;
-                        vertices[2].color = colored_triangle_normal;
-                        draw_triangle(vertices[0], vertices[1], vertices[2], FILL_MODE::COLORED_VERTEX_NORMALS);
-                    }
-                    else // Texture or vertex color fill
-                    {
-                        draw_triangle(vertices[0], vertices[1], vertices[2], obj->fill_mode, obj->texture);
-                    }
+                    draw_triangle(vertices[0], vertices[1], vertices[2], obj->fill_mode, obj->texture);
                 }
             }
-            else if (obj->fill && vertices.size() == 4) // && !back_facing)
+            else if (obj->fill && vertices.size() == 4 && !back_facing)
             {
-                // Fill quad
-
-                if (obj->shading == "phong")
+                if (obj->shading == SHADING_TYPE::PHONG)
                 {
                     // TODO: phong shading for quads
                 }
                 else // none, flat, or gouraud shading
                 {
-                    if (obj->fill_mode == FILL_MODE::COLORED_FACE_NORMALS) // Colored normals fill
-                    {
-                        // Set colored face normal as vertex colors
-                        Vec3f quad_normal_world = triangle_normal(vertices[0].pos_world, vertices[1].pos_world, vertices[2].pos_world);
-                        Vec3f colored_quad_normal = get_colored_normal(quad_normal_world);
-                        vertices[0].color = colored_quad_normal;
-                        vertices[1].color = colored_quad_normal;
-                        vertices[2].color = colored_quad_normal;
-                        draw_quad(vertices[0], vertices[1], vertices[2], vertices[3], FILL_MODE::COLORED_VERTEX_NORMALS);
-                    }
-                    else // Texture or vertex color fill
-                    {
-                        draw_quad(vertices[0], vertices[1], vertices[2], vertices[3], obj->fill_mode, obj->texture);
-                    }
+                    draw_quad(vertices[0], vertices[1], vertices[2], vertices[3], obj->fill_mode, obj->texture);
                 }
             }
 
@@ -420,6 +331,83 @@ int main(int argc, char* argv[])
     // draw_line(world_origin, world_x_axis_endpoint, 10.0f, RED, false);
     // draw_line(world_origin, world_y_axis_endpoint, 10.0f, GREEN, false);
     // draw_line(world_origin, world_z_axis_endpoint, 10.0f, BLUE, false);
+
+    if (scene.skybox != nullptr)
+    {
+        // For orthographic it won't be actual dimensions of virtual screen
+        // But, this is better since skybox won't be tied to 'zoom' of orthographic camera
+        float skybox_virtual_screen_height = 1.0f;
+        float skybox_virtual_screen_width  = aspect_ratio;
+        float skybox_virtual_screen_near   = (aspect_ratio/2.0f)/tan(scene.skybox->fov/2.0f);
+
+        // From device to ndc to virtual screen to skybox space
+        Mat4x4f device_inv = scale(Vec3f(1.0f/ndc_scale_factor.x, 1.0f/ndc_scale_factor.y, 1.0f)) * translation(-device_center);
+        Mat4x4f ndc_inv = scale(Vec3f((skybox_virtual_screen_width / ndc_width) / 2.0f, (skybox_virtual_screen_height / ndc_height) / 2.0f, 1.0f));
+        Mat4x4f camera_for_skybox = Mat4x4f(camera.truncated().transposed()) * translation(Vec3f(0.0f, 0.0f, -skybox_virtual_screen_near));
+        Mat4x4f skybox_rotation_inv = rotation_z(-scene.skybox->roll) * rotation_x(-scene.skybox->pitch) * rotation_y(-scene.skybox->yaw);
+
+        // Cube is 1x1x1
+        // Face of cube is 1x1
+        float half_length_of_cube = 1.0f / 2.0f;
+
+        // Project points on virtual screen to points on the cube
+        // Then create ray vector, use ray to figure out which cube face to sample and where to sample it
+        
+        for (int y = 0; y < supersample_device_height; y++)
+        {
+            for (int x = 0; x < supersample_device_width; x++)
+            {
+                if (z_buffer[y][x] != std::numeric_limits<float>::max()) continue;
+
+                Vec3f pixel_center = Vec3f(0.5f + x, 0.5f + y, 0.0f);
+                Vec3f ray = (skybox_rotation_inv * camera_for_skybox * ndc_inv * device_inv * Vec4f(pixel_center, 1.0f)).xyz().normalize();
+
+                // Find the dominant axis (the largest absolute value in ray.x, ray.y, ray.z)
+                float absX = std::abs(ray.x);
+                float absY = std::abs(ray.y);
+                float absZ = std::abs(ray.z);
+
+                FACE face;
+                Vec3f ray_relative_to_face;
+
+                if (absZ >= absX && absZ >= absY && ray.z < 0.0f)
+                {
+                    ray_relative_to_face = Vec3f(ray.x, ray.y, std::abs(ray.z));
+                    face = FRONT;
+                }
+                else if (absZ >= absX && absZ >= absY && ray.z > 0.0f)
+                {
+                    ray_relative_to_face = Vec3f(-ray.x, ray.y, std::abs(ray.z));
+                    face = BACK;
+                }
+                else if (absY >= absX && absY >= absZ && ray.y > 0.0f)
+                {
+                    ray_relative_to_face = Vec3f(ray.x, ray.z, std::abs(ray.y));
+                    face = TOP;
+                }
+                else if (absY >= absX && absY >= absZ && ray.y < 0.0f)
+                {
+                    ray_relative_to_face = Vec3f(ray.x, -ray.z, std::abs(ray.y));
+                    face = BOTTOM;
+                }
+                else if (absX >= absY && absX >= absZ && ray.x > 0.0f)
+                {
+                    ray_relative_to_face = Vec3f(ray.z, ray.y, std::abs(ray.x));
+                    face = RIGHT;
+                }
+                else
+                {
+                    ray_relative_to_face = Vec3f(-ray.z, ray.y, std::abs(ray.x));
+                    face = LEFT;
+                }
+
+                // cube face is [0,1]x[0,1], so just translate origin
+                Vec2f projected = Vec2f((ray_relative_to_face.x / ray_relative_to_face.z) * half_length_of_cube, (ray_relative_to_face.y / ray_relative_to_face.z) * half_length_of_cube);
+                Vec2f uv = projected + Vec2f(0.5f, 0.5f);
+                color_buffer[y][x] = sample_texture(uv, scene.skybox->textures[face]);
+            }
+        }
+    }
 
     // Init. downsampled color buffer
     Vec3f** downsampled_color_buffer = new Vec3f*[device_height];
@@ -464,6 +452,9 @@ int main(int argc, char* argv[])
     }
     tga_image.write_tga_file(scene.metadata->save_location.c_str());
 
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    std::cout << "Time taken: " << (duration.count() / 1000.0f)  << " seconds" << std::endl;
     return 0;
 }
 
@@ -492,6 +483,10 @@ Vec3f to_vec3f_color(TGAColor color)
 
 TGAColor to_tga_color(Vec3f color)
 {
+    assert(color.x >= 0.0f && color.x <= 1.0f);
+    assert(color.y >= 0.0f && color.y <= 1.0f);
+    assert(color.z >= 0.0f && color.z <= 1.0f);
+    
     return TGAColor(int(color.x * 255.99f), int(color.y * 255.99f), int(color.z * 255.99f), 255);
 }
 

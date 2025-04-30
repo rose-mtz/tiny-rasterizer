@@ -1,5 +1,5 @@
-#include "Math.h"
 #include <cassert>
+#include "Math.h"
 
 
 
@@ -83,25 +83,6 @@ float clampedf(float a, float min, float max)
     }
 }
 
-Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up)
-{
-    Vec3f z = (pos - at).normalize(); // 'backwards' of camera
-    Vec3f x = (up ^ z).normalize(); // right of camera
-    Vec3f y = (z ^ x).normalize(); // up of camera
-
-    Mat4x4f rotation_transposed = Mat4x4f(
-        Vec4f(x, 0.0f),
-        Vec4f(y, 0.0f),
-        Vec4f(z, 0.0f),
-        Vec4f(0.0f, 0.0f, 0.0f, 1.0f), true
-    );
-
-    Mat4x4f translation_inv = Mat4x4f();
-    translation_inv.cols[3] = Vec4f(pos * -1.0f, 1.0f);
-
-    return rotation_transposed * translation_inv;
-}
-
 
 Vec3f barycentric_vec3f(Vec3f a, Vec3f b, Vec3f c, Vec3f weights)
 {
@@ -119,6 +100,33 @@ float barycentric_f(float a, float b, float c, Vec3f weights)
 {
     return (a * weights.x) + (b * weights.y) + (c * weights.z);
 }
+
+
+float radians(float degree)
+{
+    return degree * (PI / 180.0f);
+}
+
+
+Mat4x4f look_at(Vec3f pos, Vec3f at, Vec3f up)
+{
+    Vec3f z = (pos - at).normalize(); // 'backwards' of camera
+    Vec3f x = (up ^ z).normalize();   // right of camera
+    Vec3f y = (z ^ x).normalize();    // up of camera
+
+    Mat4x4f rotation_transposed = Mat4x4f(
+        Vec4f(x, 0.0f),
+        Vec4f(y, 0.0f),
+        Vec4f(z, 0.0f),
+        Vec4f(0.0f, 0.0f, 0.0f, 1.0f), true
+    );
+
+    Mat4x4f translation_inv = Mat4x4f();
+    translation_inv.cols[3] = Vec4f(pos * -1.0f, 1.0f);
+
+    return rotation_transposed * translation_inv;
+}
+
 
 Mat4x4f perspective(float t, float r, float b, float l, float n, float f)
 {
@@ -151,11 +159,6 @@ Mat4x4f orthographic(float t, float r, float b, float l, float n, float f)
 }
 
 
-float radians(float degree)
-{
-    return degree * (PI / 180.0f);
-}
-
 Mat4x4f rotation_x(float theta)
 {
     return Mat4x4f(
@@ -165,6 +168,7 @@ Mat4x4f rotation_x(float theta)
         0,          0,           0, 1
     );
 }
+
 
 Mat4x4f rotation_y(float theta)
 {
@@ -176,6 +180,7 @@ Mat4x4f rotation_y(float theta)
     );
 }
 
+
 Mat4x4f rotation_z(float theta)
 {
     return Mat4x4f(
@@ -186,6 +191,7 @@ Mat4x4f rotation_z(float theta)
     );
 }
 
+
 Mat4x4f translation(Vec3f v)
 {
     return Mat4x4f(
@@ -195,6 +201,7 @@ Mat4x4f translation(Vec3f v)
         0, 0, 0, 1
     );
 }
+
 
 Mat4x4f scale(Vec3f scale)
 {

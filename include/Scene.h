@@ -29,13 +29,14 @@ struct Material
 
 // Fill mode for filling in faces of object
 enum class FILL_MODE { TEXTURE, VERTEX_COLORS, COLORED_FACE_NORMALS, COLORED_VERTEX_NORMALS };
+enum class SHADING_TYPE { NONE, FLAT, GOURAUD, PHONG };
 
 struct Object3D
 {
     Model* model;
     TGAImage* texture;
     Material* mat;
-    std::string shading;
+    SHADING_TYPE shading;
 
     // Transformations
     Vec3f pos;
@@ -45,9 +46,6 @@ struct Object3D
     float roll;
 
     // Modes
-    // bool colored_face_normals_mode;
-    // bool colored_vertex_normals_mode;
-
     bool wireframe;
     bool fill;
     FILL_MODE fill_mode;
@@ -59,6 +57,7 @@ struct Camera
     std::string type; // refactor out later
     Vec3f pos;
     Vec3f look_at;
+    Vec3f up;
 
     // orthographic
     float zoom;

@@ -240,12 +240,46 @@ Material* parse_material(std::ifstream& in)
 
 Model* parse_model(std::ifstream& in)
 {
+    std::string filename; 
+    bool clockwise_winding = true;
+
     std::string line; std::getline(in, line);
-    std::istringstream iss(line.c_str());
-    std::string attribute; assert(iss >> attribute);
-    std::string filename; assert(iss >> filename);
+    while (line.size() != 0) // blank line indicates end of attributes
+    {
+        std::istringstream iss(line.c_str());
+        std::string attribute; iss >> attribute;
+
+        if (attribute == "filename")
+        {
+            assert(iss >> filename);
+        }
+        else if (attribute == "winding")
+        {
+            std::string winding; iss >> winding;
+
+            if (winding == "clockwise")
+            {
+                clockwise_winding = true;
+            }
+            else if (winding == "counter_clockwise")
+            {
+                clockwise_winding = false;
+            }
+            else
+            {
+                assert(false);
+            }
+        }
+
+        if (in.eof()) // was last line of file
+        {
+            break;
+        }
+        std::getline(in, line); // get next line   
+    }
 
     Model* model = new Model(filename.c_str());
+    model->clockwise_winding = clockwise_winding;
 
     return model;
 }
@@ -274,9 +308,7 @@ Object3D* parse_object3d(std::ifstream& in)
     Material* mat = nullptr;
     Vec3f position = Vec3f(0.0f, 0.0f, 0.0f);
     float scale = 1.0f;
-    std::string shading = "flat";
-    // bool colored_triangle_normals_mode = false;
-    // bool colored_vertex_normals_mode = false;
+    SHADING_TYPE shading = SHADING_TYPE::FLAT;
     bool wireframe = false;
     bool fill = false;
     FILL_MODE fill_mode = FILL_MODE::TEXTURE;
@@ -318,8 +350,28 @@ Object3D* parse_object3d(std::ifstream& in)
         }
         else if (attribute == "shading")
         {
-            assert(iss >> shading);
-            assert(shading == "flat" || shading == "gouraud" || shading == "phong" || shading == "none");
+            std::string shading_type_str; iss >> shading_type_str;
+
+            if (shading_type_str == "flat")
+            {
+                shading = SHADING_TYPE::FLAT;
+            }
+            else if (shading_type_str == "gouraud")
+            {
+                shading = SHADING_TYPE::GOURAUD;
+            }
+            else if (shading_type_str == "phong")
+            {
+                shading = SHADING_TYPE::PHONG;
+            }
+            else if (shading_type_str == "none")
+            {
+                shading = SHADING_TYPE::NONE;
+            }
+            else 
+            {
+                assert(false);
+            }
         }
         else if (attribute == "modes")
         {
@@ -337,12 +389,10 @@ Object3D* parse_object3d(std::ifstream& in)
                 }
                 else if (mode == "colored_face_normals")
                 {
-                    // colored_triangle_normals_mode = true;
                     fill_mode = FILL_MODE::COLORED_FACE_NORMALS;
                 }
                 else if (mode == "colored_vertex_normals")
                 {
-                    // colored_vertex_normals_mode = true;
                     fill_mode = FILL_MODE::COLORED_VERTEX_NORMALS;
                 }
                 else if (mode == "texture")
@@ -388,8 +438,6 @@ Object3D* parse_object3d(std::ifstream& in)
     obj->shading = shading;
     obj->pos = position;
     obj->scale = scale;
-    // obj->colored_face_normals_mode = colored_triangle_normals_mode;
-    // obj->colored_vertex_normals_mode = colored_vertex_normals_mode;
     obj->wireframe = wireframe;
     obj->fill = fill;
     obj->fill_mode = fill_mode;
@@ -406,6 +454,7 @@ Camera* parse_camera(std::ifstream& in)
     std::string type = "orthographic";
     Vec3f pos = Vec3f(0.0f, 0.0f, 10.0f);
     Vec3f look_at = Vec3f(0.0f, 0.0f, 0.0f);
+    Vec3f up = Vec3f(0.0f, 1.0f, 0.0f);
     float zoom = 1.0f;
     float fov = radians(45);
 
@@ -437,6 +486,10 @@ Camera* parse_camera(std::ifstream& in)
             assert(iss >> fov);
             fov = radians(fov);
         }
+        else if (attribute == "up")
+        {
+            up = parse_vec3f(iss);
+        }
         else
         {
             std::cout << "Error:: unkown Camera attribute " << attribute << '\n';
@@ -454,8 +507,11 @@ Camera* parse_camera(std::ifstream& in)
     cam->type = type;
     cam->pos = pos;
     cam->look_at = look_at;
+    cam->up = up.normalize();
     cam->zoom = zoom;
     cam->fov = fov;
+
+    assert(!((up ^ (pos - look_at)) == Vec3f(0.0f, 0.0f, 0.0f))); // invalid up
 
     return cam;
 }
