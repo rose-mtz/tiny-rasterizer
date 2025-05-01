@@ -305,7 +305,7 @@ int main(int argc, char* argv[])
             {
                 Vec3f wireframe_color = RED;
                 float wireframe_thickness = 4.0f;
-                Vec3f wireframe_epsilon (0.0f, 0.0f, 0.01f); // for preventing z-fighting with face 
+                Vec3f wireframe_epsilon (0.0f, 0.0f, -0.01f); // for preventing z-fighting with face 
                 for (int i = 0; i < vertices.size(); i++)
                 {
                     draw_line(vertices[i].pos_device + wireframe_epsilon, vertices[(i + 1) % vertices.size()].pos_device + wireframe_epsilon, wireframe_thickness, wireframe_color);

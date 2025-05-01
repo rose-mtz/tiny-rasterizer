@@ -1,0 +1,32 @@
+Image_Metadata
+    background_color 0.0 0.0 0.0
+    aspect_ratio 1 1
+    width 500
+    supersample_factor 2
+    save_location ./tests/rendered_unit_scenes/quad_textured_made_of_triangles.tga
+
+Model
+    filename assets/obj/quad_textured_made_of_triangles.obj
+    winding counter_clockwise
+
+Texture
+    filename assets/textures/brick_wall_diffuse.tga
+
+# Scene --------------------------
+
+Camera
+    type     perspective
+    position 0.0 0.0 2.0
+    lookAt   0.0 0.0 0.0
+    fov 40
+
+# Quad -------------
+
+Object3D
+    model 0
+    texture 0
+    position 0.0 0.0 0.0
+    scale 1.0
+    rotations 30 0 0
+    shading none
+    modes fill texture wireframe
