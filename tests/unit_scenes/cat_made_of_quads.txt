@@ -1,0 +1,32 @@
+Image_Metadata
+    background_color 0.0 0.0 0.0
+    aspect_ratio 1 1
+    width 720
+    supersample_factor 2
+    save_location ./tests/rendered_unit_scenes/cat_made_of_quads.tga
+
+Model
+    filename assets/obj/cat.obj
+    winding clockwise
+
+Texture
+    filename assets/textures/cat_diffuse.tga
+
+# Scene --------------------------
+
+Camera
+    type     perspective
+    position 0.0 10.0 20.0
+    lookAt   0.0 0.0 0.0
+    fov      37.0
+
+# Cat -------------
+
+Object3D
+    model 0
+    texture 0
+    position 0.0 -12.0 0.0
+    scale 0.6
+    rotations 0 -90 0
+    shading none
+    modes fill texture

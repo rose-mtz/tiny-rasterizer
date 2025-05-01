@@ -1,0 +1,24 @@
+Image_Metadata
+    background_color 0.0 0.0 0.0
+    aspect_ratio 1 1
+    width 1000
+    supersample_factor 1
+    save_location ./tests/rendered_unit_scenes/skybox_back.tga
+
+# Scene --------------------------
+
+Camera
+    type     perspective
+    position 0.0 0.0 2.0
+    lookAt   0.0 0.0 0.0
+    fov      70.0
+
+Skybox
+    front  ./assets/skybox/front.tga
+    back   ./assets/skybox/back.tga
+    right  ./assets/skybox/right.tga
+    left   ./assets/skybox/left.tga
+    top    ./assets/skybox/top.tga
+    bottom ./assets/skybox/bottom.tga
+    rotations 0 -15 0
+    fov 50

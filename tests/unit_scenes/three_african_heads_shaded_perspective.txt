@@ -1,9 +1,9 @@
 Image_Metadata
-    background_color 0.0 0.25 0.0
+    background_color 0.0 0.0 0.0
     aspect_ratio 2 1
     width 1000
     supersample_factor 2
-    save_location ./archive/three_african_heads.tga
+    save_location ./tests/rendered_unit_scenes/three_african_heads_shaded_perspective.tga
 
 Model
     filename assets/obj/african_head.obj
@@ -18,18 +18,7 @@ Camera
     type     perspective
     position 0.0 0.0 2.0
     lookAt   0.0 0.0 0.0
-    zoom     1.0
     fov      70.0
-
-Skybox
-    front  ./assets/skybox/front.tga
-    back   ./assets/skybox/back.tga
-    right  ./assets/skybox/right.tga
-    left   ./assets/skybox/left.tga
-    top    ./assets/skybox/top.tga
-    bottom ./assets/skybox/bottom.tga
-    rotations 180 00 00
-    fov 120
 
 # Center head -------------
 
@@ -65,7 +54,7 @@ Object3D
     scale 1.0
     rotations 45 0 0
     shading flat
-    modes fill colored_face_normals
+    modes fill
 
 # Right head -------------
 
@@ -83,7 +72,7 @@ Object3D
     scale 1.0
     rotations -45 0 0
     shading gouraud
-    modes fill colored_vertex_normals
+    modes fill
 
 # Lights --------------------------
 

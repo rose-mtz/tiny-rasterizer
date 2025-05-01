@@ -3,7 +3,7 @@ Image_Metadata
     aspect_ratio 1 1
     width 500
     supersample_factor 2
-    save_location ./archive/triangle_vertex_colored.tga
+    save_location ./tests/rendered_unit_scenes/vertex_colored_equilateral_triangle.tga
 
 Model
     filename assets/obj/triangle_vertex_colored.obj
