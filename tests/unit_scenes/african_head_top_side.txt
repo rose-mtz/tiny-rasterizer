@@ -1,0 +1,47 @@
+Image_Metadata
+    background_color 0.0 0.0 0.0
+    aspect_ratio 1 1
+    width 1000
+    supersample_factor 2
+    save_location ./tests/rendered_unit_scenes/african_head_top_side.tga
+
+Model
+    filename assets/obj/african_head.obj
+    winding clockwise
+
+Texture
+    filename assets/textures/african_head_diffuse.tga
+
+# Scene --------------------------
+
+Camera
+    type     perspective
+    position 0.0 2.0 0.0
+    lookAt   0.0 0.0 0.0
+    fov      35
+    up       0.0 0.0 1.0
+
+# Center head -------------
+
+Material
+    k_d 0.7
+    k_s 0.2
+    k_a 0.1
+    shininess 10
+
+Object3D
+    model 0
+    texture 0
+    material 0
+    position 0.0 0.0 0.0
+    scale 1.0
+    rotations 0 0 0
+    shading phong
+    modes fill
+
+# Light --------------------------
+
+Light
+    type directional
+    direction 0.0 -1.0 0.0
+    color 1.0 1.0 1.0
