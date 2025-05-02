@@ -24,4 +24,4 @@ Object3D
     position 0.0 0.0 0.0
     scale 1.0
     shading none
-    modes fill vertex_colors
+    modes fill vertex_colors wireframe
