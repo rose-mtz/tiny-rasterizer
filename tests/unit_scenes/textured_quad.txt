@@ -15,10 +15,10 @@ Texture
 # Scene --------------------------
 
 Camera
-    type     orthographic
-    position 0.0 0.0 8.0
+    type     perspective
+    position 0.0 0.0 2.0
     lookAt   0.0 0.0 0.0
-    zoom     2.0
+    fov 40
 
 # Quad -------------
 
@@ -27,5 +27,6 @@ Object3D
     texture 0
     position 0.0 0.0 0.0
     scale 1.0
+    rotations 30 0 0
     shading none
-    modes fill texture
+    modes fill texture wireframe
